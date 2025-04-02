@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom"; // Added useNavigate here
 import { 
   FaHotel, 
   FaUtensils, 
@@ -15,7 +15,9 @@ const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate(); // Now properly imported
 
+  // Rest of your component remains exactly the same...
   // Close mobile menu when route changes
   useEffect(() => {
     setIsOpen(false);
@@ -33,7 +35,7 @@ const Navbar = () => {
   const navItems = [
     { name: "Hotels", path: "/hotels", icon: <FaHotel className="mr-2" /> },
     { name: "Restaurants", path: "/restaurants", icon: <FaUtensils className="mr-2" /> },
-    { name: "Prayer Times", path: "/prayer-times", icon: <FaPray className="mr-2" /> },
+    { name: "About", path: "/about", icon: <FaPray className="mr-2" /> },
     { name: "Account", path: "/account", icon: <FaUser className="mr-2" /> },
   ];
 
@@ -73,7 +75,10 @@ const Navbar = () => {
                   {item.name}
                 </Link>
               ))}
-              <button className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 shadow-md hover:shadow-lg">
+              <button 
+                onClick={() => navigate('/book-now')}
+                className="bg-gradient-to-r from-emerald-600 to-emerald-700 hover:from-emerald-700 hover:to-emerald-800 text-white px-6 py-2 rounded-full font-medium transition-all duration-300 shadow-md hover:shadow-lg"
+              >
                 Book Now
               </button>
             </nav>
@@ -112,8 +117,11 @@ const Navbar = () => {
                   </Link>
                 ))}
                 <button 
+                  onClick={() => {
+                    navigate('/book-now');
+                    setIsOpen(false);
+                  }}
                   className="w-full bg-gradient-to-r from-emerald-600 to-emerald-700 text-white px-6 py-3 rounded-full font-medium mt-2 shadow-md hover:shadow-lg transition-all"
-                  onClick={() => setIsOpen(false)}
                 >
                   Book Now
                 </button>
