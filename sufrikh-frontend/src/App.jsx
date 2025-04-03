@@ -9,9 +9,11 @@ import ResetPassword from './pages/public/ResetPassword'
 import BookNow from './pages/public/BookNow'
 import Bookings from './pages/protected/Bookings'
 import Orders from './pages/protected/Orders'
+import AdminPanel from './pages/protected/admin/AdminPanel'
 import Hotels from './pages/public/Hotels'
 import Dashboard from './pages/protected/Dashboard'
 import Restaurants from './pages/public/Restaurants'
+import UserManagement from './pages/protected/admin/UserManagment'
 import Account from './pages/public/Account'
 import Layout from './components/common/Layout'
 import { BrowserRouter, Routes, Route } from 'react-router-dom'
@@ -29,6 +31,8 @@ function App() {
         <Route path="bookings" element={<Bookings/>} />
         <Route path="orders" element={<Orders/>} />
         <Route path="register" element={<Register/>} />
+        <Route path="user-management" element={<UserManagement/>} />
+        <Route path="admin" element={<AdminPanel/>} />
         <Route path="forgot-password" element={<ForgotPassword/>} />
         <Route path="reset-password/:token" element={<ResetPassword/>} />
         <Route path="account" element={<Account/>} />
