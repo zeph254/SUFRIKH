@@ -1,8 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import  AuthContext  from '../../context/AuthContext';
 import { FaUser, FaEnvelope, FaLock, FaPhone, FaIdCard, FaPrayingHands, FaVenusMars } from 'react-icons/fa';
 import { GiPrayerBeads } from 'react-icons/gi';
 
 const Register = () => {
+  const { register } = useContext(AuthContext);
+  const navigate = useNavigate();
+  
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -21,7 +26,39 @@ const Register = () => {
     specialRequests: ''
   });
 
+  const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
+
+  const validateStep = (step) => {
+    const newErrors = {};
+    
+    if (step === 1) {
+      if (!formData.firstName.trim()) newErrors.firstName = 'First name is required';
+      if (!formData.lastName.trim()) newErrors.lastName = 'Last name is required';
+      if (!formData.email.trim()) {
+        newErrors.email = 'Email is required';
+      } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        newErrors.email = 'Invalid email format';
+      }
+      if (!formData.phone.trim()) newErrors.phone = 'Phone number is required';
+      if (!formData.password) {
+        newErrors.password = 'Password is required';
+      } else if (formData.password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      }
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Passwords do not match';
+      }
+    }
+    
+    if (step === 2 && !formData.idNumber.trim()) {
+      newErrors.idNumber = 'ID number is required';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -41,21 +78,82 @@ const Register = () => {
         [name]: type === 'checkbox' ? checked : value
       }));
     }
+
+    // Clear error when user starts typing
+    if (errors[name]) {
+      setErrors(prev => {
+        const newErrors = { ...prev };
+        delete newErrors[name];
+        return newErrors;
+      });
+    }
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle registration logic
-    console.log('Registration data:', formData);
-    alert('Registration successful! Welcome to Sufrikh Hotels.');
+    
+    if (!validateStep(currentStep)) return;
+    
+    if (currentStep < 3) {
+      nextStep();
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      // Prepare data for backend
+      const userData = {
+        first_name: formData.firstName,
+        last_name: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        gender: formData.gender,
+        id_type: formData.idType,
+        id_number: formData.idNumber,
+        halal_preferences: formData.halalPreferences,
+        special_requests: formData.specialRequests
+      };
+      
+      const response = await register(userData);
+      
+      if (response.success) {
+        navigate('/dashboard', { state: { welcome: true } });
+      } else {
+        setErrors(prev => ({
+          ...prev,
+          form: response.error || 'Registration failed'
+        }));
+      }
+    } catch (err) {
+      setErrors(prev => ({
+        ...prev,
+        form: err.response?.data?.error || 'Registration failed. Please try again.'
+      }));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
-  const nextStep = () => setCurrentStep(prev => prev + 1);
+  const nextStep = () => {
+    if (validateStep(currentStep)) {
+      setCurrentStep(prev => prev + 1);
+    }
+  };
+
   const prevStep = () => setCurrentStep(prev => prev - 1);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-emerald-50 to-white py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-2xl mx-auto">
+        {/* Error message for form */}
+        {errors.form && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            {errors.form}
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center mb-10">
           <h1 className="text-3xl font-bold text-emerald-800 mb-2">
@@ -112,10 +210,13 @@ const Register = () => {
                         name="firstName"
                         value={formData.firstName}
                         onChange={handleChange}
-                        className="pl-10 w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`pl-10 w-full border ${errors.firstName ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                         required
                       />
                     </div>
+                    {errors.firstName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>
+                    )}
                   </div>
                   
                   <div>
@@ -127,9 +228,12 @@ const Register = () => {
                       name="lastName"
                       value={formData.lastName}
                       onChange={handleChange}
-                      className="w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                      className={`w-full border ${errors.lastName ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                       required
                     />
+                    {errors.lastName && (
+                      <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>
+                    )}
                   </div>
                 </div>
 
@@ -170,10 +274,13 @@ const Register = () => {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        className="pl-10 w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`pl-10 w-full border ${errors.email ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                         required
                       />
                     </div>
+                    {errors.email && (
+                      <p className="mt-1 text-sm text-red-600">{errors.email}</p>
+                    )}
                   </div>
                   
                   <div>
@@ -189,10 +296,13 @@ const Register = () => {
                         name="phone"
                         value={formData.phone}
                         onChange={handleChange}
-                        className="pl-10 w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`pl-10 w-full border ${errors.phone ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                         required
                       />
                     </div>
+                    {errors.phone && (
+                      <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
+                    )}
                   </div>
                 </div>
 
@@ -210,10 +320,13 @@ const Register = () => {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        className="pl-10 w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`pl-10 w-full border ${errors.password ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                         required
                       />
                     </div>
+                    {errors.password && (
+                      <p className="mt-1 text-sm text-red-600">{errors.password}</p>
+                    )}
                   </div>
                   
                   <div>
@@ -229,10 +342,13 @@ const Register = () => {
                         name="confirmPassword"
                         value={formData.confirmPassword}
                         onChange={handleChange}
-                        className="pl-10 w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                        className={`pl-10 w-full border ${errors.confirmPassword ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                         required
                       />
                     </div>
+                    {errors.confirmPassword && (
+                      <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
+                    )}
                   </div>
                 </div>
 
@@ -280,9 +396,12 @@ const Register = () => {
                     name="idNumber"
                     value={formData.idNumber}
                     onChange={handleChange}
-                    className="w-full border border-gray-300 rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500"
+                    className={`w-full border ${errors.idNumber ? 'border-red-500' : 'border-gray-300'} rounded-md py-2 px-3 focus:ring-emerald-500 focus:border-emerald-500`}
                     required
                   />
+                  {errors.idNumber && (
+                    <p className="mt-1 text-sm text-red-600">{errors.idNumber}</p>
+                  )}
                 </div>
 
                 <div className="pt-4 flex justify-between">
@@ -382,9 +501,10 @@ const Register = () => {
                   </button>
                   <button
                     type="submit"
-                    className="w-2/3 ml-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-md transition duration-150"
+                    disabled={isSubmitting}
+                    className={`w-2/3 ml-4 bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-2 px-4 rounded-md transition duration-150 ${isSubmitting ? 'opacity-75 cursor-not-allowed' : ''}`}
                   >
-                    Complete Registration
+                    {isSubmitting ? 'Registering...' : 'Complete Registration'}
                   </button>
                 </div>
               </div>

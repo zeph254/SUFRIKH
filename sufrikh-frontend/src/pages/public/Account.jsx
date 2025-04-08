@@ -1,97 +1,195 @@
-import { FaUser, FaHistory, FaPrayingHands,FaStar, FaCog, FaSignOutAlt, FaCheckCircle, FaClock, FaTimesCircle } from 'react-icons/fa';
+import React, { useState, useContext, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import  AuthContext  from '../../context/AuthContext';
+import { FaUser, FaHistory, FaPrayingHands, FaStar, FaCog, FaSignOutAlt, 
+         FaCheckCircle, FaCamera, FaTrash, FaPhone, FaVenusMars, FaIdCard } from 'react-icons/fa';
 import { GiMeal, GiPrayerBeads } from 'react-icons/gi';
 
 const AccountPage = () => {
-  // Sample user data
-  const user = {
-    name: "Aisha Rahman",
-    email: "aisha@example.com",
-    memberSince: "January 2023",
-    loyaltyPoints: 1250,
-    avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=200&q=80"
-  };
+  const { 
+    user, 
+    logout, 
+    updateUser, 
+    deleteAccount,
+    isLoading,
+    authError,
+    setAuthError
+  } = useContext(AuthContext);
+  const navigate = useNavigate();
+  
+  const [isEditing, setIsEditing] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    gender: 'male',
+    idType: 'passport',
+    idNumber: '',
+    prayerInRoom: false,
+    noAlcohol: true,
+    zabihahOnly: true,
+    specialRequests: ''
+  });
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Sample orders
-  const orders = [
-    {
-      id: "#SFH-2849",
-      date: "15 Oct 2023",
-      type: "Hotel Booking",
-      status: "completed",
-      amount: "$1,250",
-      items: ["Deluxe Room - 3 Nights", "Breakfast Included"]
-    },
-    {
-      id: "#SFR-5821",
-      date: "22 Nov 2023",
-      type: "Restaurant Reservation",
-      status: "upcoming",
-      amount: "$320",
-      items: ["Table for 4 - Sufrikh Fine Dining", "Special Iftar Menu"]
-    },
-    {
-      id: "#SFH-6723",
-      date: "5 Dec 2023",
-      type: "Hotel Booking",
-      status: "cancelled",
-      amount: "$980",
-      items: ["Executive Suite - 2 Nights"]
+  // Initialize form data when user loads
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        gender: user.gender || 'male',
+        idType: user.id_type || 'passport',
+        idNumber: user.id_number || '',
+        prayerInRoom: user.prayer_in_room || false,
+        noAlcohol: user.no_alcohol !== undefined ? user.no_alcohol : true,
+        zabihahOnly: user.zabihah_only !== undefined ? user.zabihah_only : true,
+        specialRequests: user.special_requests || ''
+      });
     }
-  ];
+  }, [user]);
 
-  // Prayer times (sample data - would ideally come from an API)
-  const prayerTimes = {
-    fajr: "5:30 AM",
-    dhuhr: "12:30 PM",
-    asr: "3:45 PM",
-    maghrib: "6:15 PM",
-    isha: "8:00 PM"
+  const handleInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+    
+    // Clear error when user starts typing
+    if (authError) setAuthError(null);
   };
+
+  const handleSave = async () => {
+    try {
+      const updatedData = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
+        gender: formData.gender,
+        idType: formData.idType,
+        idNumber: formData.idNumber,
+        prayerInRoom: formData.prayerInRoom,
+        noAlcohol: formData.noAlcohol,
+        zabihahOnly: formData.zabihahOnly,
+        specialRequests: formData.specialRequests
+      };
+
+      await updateUser(updatedData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error("Update error:", error);
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteAccount();
+      navigate('/');
+    } catch (error) {
+      console.error("Delete error:", error);
+    }
+  };
+
+  if (!user) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <p className="text-lg">You need to be logged in to view this page</p>
+          <button 
+            onClick={() => navigate('/login')}
+            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg"
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
       <div className="bg-emerald-700 text-white py-6">
         <div className="container mx-auto px-4">
-          <h1 className="text-3xl font-bold font-playfair">My Account</h1>
-          <p className="text-emerald-100">Manage your bookings and preferences</p>
+          <h1 className="text-3xl font-bold">My Account</h1>
+          <p className="text-emerald-100">Manage your profile and preferences</p>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-12">
+      <div className="container mx-auto px-4 py-8">
+        {/* Error Message */}
+        {authError && (
+          <div className="mb-6 p-4 bg-red-50 text-red-700 rounded-lg">
+            {authError}
+          </div>
+        )}
+
         <div className="flex flex-col lg:flex-row gap-8">
           {/* Sidebar */}
           <div className="lg:w-1/4">
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <div className="flex flex-col items-center text-center mb-6">
-                <img 
-                  src={user.avatar} 
-                  alt={user.name} 
-                  className="w-24 h-24 rounded-full object-cover border-4 border-emerald-100 mb-4"
-                />
-                <h3 className="text-xl font-bold">{user.name}</h3>
+                <div className="relative mb-4">
+                  <img 
+                    src={user.avatar || "https://via.placeholder.com/150"} 
+                    alt={user.first_name} 
+                    className="w-24 h-24 rounded-full object-cover border-4 border-emerald-100"
+                  />
+                  {isEditing && (
+                    <button className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full">
+                      <FaCamera />
+                    </button>
+                  )}
+                </div>
+                <h3 className="text-xl font-bold">{user.first_name} {user.last_name}</h3>
                 <p className="text-gray-600">{user.email}</p>
                 <div className="mt-2 px-4 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm">
-                  Gold Member
+                  {user.role || 'Member'}
                 </div>
               </div>
 
               <div className="space-y-1">
-                <a href="#" className="flex items-center px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 font-medium">
-                  <FaUser className="mr-3" /> My Profile
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100">
-                  <FaHistory className="mr-3" /> Booking History
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100">
-                  <GiPrayerBeads className="mr-3" /> Prayer Preferences
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100">
-                  <FaCog className="mr-3" /> Account Settings
-                </a>
-                <a href="#" className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 text-red-500">
-                  <FaSignOutAlt className="mr-3" /> Logout
-                </a>
+                <button 
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="flex items-center px-4 py-3 rounded-lg bg-emerald-50 text-emerald-700 font-medium w-full text-left"
+                >
+                  <FaUser className="mr-3" /> 
+                  {isEditing ? 'Cancel Editing' : 'Edit Profile'}
+                </button>
+                {isEditing ? (
+                  <button 
+                    onClick={handleSave}
+                    disabled={isLoading}
+                    className="flex items-center justify-center px-4 py-3 rounded-lg bg-emerald-600 text-white font-medium w-full"
+                  >
+                    {isLoading ? 'Saving...' : 'Save Changes'}
+                  </button>
+                ) : (
+                  <>
+                    <button className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 w-full text-left">
+                      <FaHistory className="mr-3" /> Booking History
+                    </button>
+                    <button className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 w-full text-left">
+                      <GiPrayerBeads className="mr-3" /> Preferences
+                    </button>
+                    <button 
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 text-red-500 w-full text-left"
+                    >
+                      <FaTrash className="mr-3" /> Delete Account
+                    </button>
+                    <button 
+                      onClick={logout}
+                      className="flex items-center px-4 py-3 rounded-lg hover:bg-gray-100 text-red-500 w-full text-left"
+                    >
+                      <FaSignOutAlt className="mr-3" /> Logout
+                    </button>
+                  </>
+                )}
               </div>
             </div>
 
@@ -104,143 +202,238 @@ const AccountPage = () => {
               <div className="space-y-3">
                 <div className="flex justify-between">
                   <span>Fajr</span>
-                  <span className="font-medium">{prayerTimes.fajr}</span>
+                  <span className="font-medium">5:30 AM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Dhuhr</span>
-                  <span className="font-medium">{prayerTimes.dhuhr}</span>
+                  <span className="font-medium">1:15 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Asr</span>
-                  <span className="font-medium">{prayerTimes.asr}</span>
+                  <span className="font-medium">4:45 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Maghrib</span>
-                  <span className="font-medium">{prayerTimes.maghrib}</span>
+                  <span className="font-medium">6:30 PM</span>
                 </div>
                 <div className="flex justify-between">
                   <span>Isha</span>
-                  <span className="font-medium">{prayerTimes.isha}</span>
+                  <span className="font-medium">8:00 PM</span>
                 </div>
               </div>
-              <button className="mt-4 w-full bg-emerald-600 hover:bg-emerald-700 text-white py-2 rounded-lg text-sm font-medium transition-colors">
-                Set Prayer Alerts
-              </button>
             </div>
           </div>
 
           {/* Main Content */}
           <div className="lg:w-3/4">
-            {/* Welcome Card */}
-            <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl shadow-lg p-6 mb-8">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold font-playfair mb-2">Welcome Back, {user.name.split(' ')[0]}!</h2>
-                  <p className="text-emerald-100">Member since {user.memberSince} • {user.loyaltyPoints} Loyalty Points</p>
-                </div>
-                <div className="mt-4 md:mt-0">
-                  <button className="bg-white text-emerald-700 hover:bg-gray-100 px-6 py-2 rounded-full font-medium transition-colors flex items-center">
-                    <GiMeal className="mr-2" /> Redeem Points
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Current Bookings */}
+            {/* Profile Information */}
             <div className="bg-white rounded-xl shadow-md p-6 mb-8">
               <h3 className="text-xl font-bold mb-6 flex items-center">
-                <FaHistory className="text-emerald-600 mr-2" /> 
-                My Bookings & Orders
+                <FaUser className="text-emerald-600 mr-2" /> 
+                {isEditing ? 'Edit Profile' : 'Profile Information'}
               </h3>
               
-              <div className="space-y-6">
-                {orders.map((order, index) => (
-                  <div key={index} className="border border-gray-200 rounded-lg p-5 hover:shadow-md transition-shadow">
-                    <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
-                      <div>
-                        <h4 className="font-bold">{order.type}</h4>
-                        <p className="text-sm text-gray-500">#{order.id} • {order.date}</p>
-                      </div>
-                      <div className="mt-2 md:mt-0">
-                        {order.status === "completed" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-green-100 text-green-800 text-sm">
-                            <FaCheckCircle className="mr-1" /> Completed
-                          </span>
-                        )}
-                        {order.status === "upcoming" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 text-sm">
-                            <FaClock className="mr-1" /> Upcoming
-                          </span>
-                        )}
-                        {order.status === "cancelled" && (
-                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-red-100 text-red-800 text-sm">
-                            <FaTimesCircle className="mr-1" /> Cancelled
-                          </span>
-                        )}
-                      </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="firstName"
+                      value={formData.firstName}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{user.first_name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                  {isEditing ? (
+                    <input
+                      type="text"
+                      name="lastName"
+                      value={formData.lastName}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{user.last_name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <p className="text-gray-700">{user.email}</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  {isEditing ? (
+                    <input
+                      type="tel"
+                      name="phone"
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                    />
+                  ) : (
+                    <p className="text-gray-700">{user.phone || 'Not provided'}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Gender</label>
+                  {isEditing ? (
+                    <div className="flex space-x-4">
+                      {['male', 'female'].map(gender => (
+                        <label key={gender} className="flex items-center">
+                          <input
+                            type="radio"
+                            name="gender"
+                            value={gender}
+                            checked={formData.gender === gender}
+                            onChange={handleInputChange}
+                            className="h-4 w-4 text-emerald-600"
+                          />
+                          <span className="ml-2 capitalize">{gender}</span>
+                        </label>
+                      ))}
                     </div>
-                    
-                    <div className="mb-4">
-                      <ul className="list-disc list-inside text-gray-700 space-y-1">
-                        {order.items.map((item, i) => (
-                          <li key={i}>{item}</li>
-                        ))}
-                      </ul>
+                  ) : (
+                    <p className="text-gray-700 capitalize">{user.gender || 'Not specified'}</p>
+                  )}
+                </div>
+
+                {isEditing && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Type</label>
+                      <select
+                        name="idType"
+                        value={formData.idType}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      >
+                        <option value="passport">Passport</option>
+                        <option value="national_id">National ID</option>
+                        <option value="driving_license">Driving License</option>
+                      </select>
                     </div>
-                    
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                      <div className="font-bold text-lg mb-2 sm:mb-0">{order.amount}</div>
-                      <div className="space-x-2">
-                        <button className="px-4 py-2 border border-emerald-600 text-emerald-600 rounded-lg hover:bg-emerald-50 transition-colors text-sm">
-                          View Details
-                        </button>
-                        {order.status === "upcoming" && (
-                          <button className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm">
-                            Modify Booking
-                          </button>
-                        )}
-                      </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">ID Number</label>
+                      <input
+                        type="text"
+                        name="idNumber"
+                        value={formData.idNumber}
+                        onChange={handleInputChange}
+                        className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      />
                     </div>
-                  </div>
-                ))}
+                  </>
+                )}
               </div>
+
+              {isEditing && (
+                <div className="mt-6 space-y-4">
+                  <h4 className="font-medium">Halal Preferences</h4>
+                  
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      name="prayerInRoom"
+                      checked={formData.prayerInRoom}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-emerald-600"
+                    />
+                    <span>Prayer amenities in room (mat, Quran, Qibla direction)</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      name="noAlcohol"
+                      checked={formData.noAlcohol}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-emerald-600"
+                    />
+                    <span>No alcohol in room service or minibar</span>
+                  </label>
+                  
+                  <label className="flex items-center space-x-3">
+                    <input
+                      type="checkbox"
+                      name="zabihahOnly"
+                      checked={formData.zabihahOnly}
+                      onChange={handleInputChange}
+                      className="h-4 w-4 text-emerald-600"
+                    />
+                    <span>Zabihah-only meat in all meals</span>
+                  </label>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Special Requests</label>
+                    <textarea
+                      name="specialRequests"
+                      value={formData.specialRequests}
+                      onChange={handleInputChange}
+                      rows={3}
+                      className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      placeholder="Any special requirements or preferences"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Loyalty Program */}
+            {/* Delete Account Section */}
             <div className="bg-white rounded-xl shadow-md p-6">
-              <h3 className="text-xl font-bold mb-6 flex items-center">
-                <FaStar className="text-yellow-500 mr-2" /> 
-                Sufrikh Loyalty Program
-              </h3>
-              
-              <div className="flex items-center mb-6">
-                <div className="w-full bg-gray-200 rounded-full h-4">
-                  <div 
-                    className="bg-gradient-to-r from-yellow-400 to-yellow-500 h-4 rounded-full" 
-                    style={{ width: `${Math.min(100, (user.loyaltyPoints / 2000) * 100)}%` }}
-                  ></div>
-                </div>
-                <span className="ml-4 font-medium">{user.loyaltyPoints}/2000 points</span>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="border border-emerald-100 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-emerald-600 mb-2">5%</div>
-                  <p className="text-gray-700">Discount on all bookings</p>
-                </div>
-                <div className="border border-emerald-100 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-emerald-600 mb-2">Free</div>
-                  <p className="text-gray-700">Room upgrade at 1500 pts</p>
-                </div>
-                <div className="border border-emerald-100 rounded-lg p-4 text-center">
-                  <div className="text-2xl font-bold text-emerald-600 mb-2">VIP</div>
-                  <p className="text-gray-700">Access at 2000 pts</p>
-                </div>
+              <h3 className="text-xl font-bold mb-4 text-red-600">Danger Zone</h3>
+              <div className="border border-red-200 rounded-lg p-4">
+                <h4 className="font-medium mb-2">Delete Account</h4>
+                <p className="text-sm text-gray-600 mb-4">
+                  This will permanently delete your account and all associated data.
+                  This action cannot be undone.
+                </p>
+                <button
+                  onClick={() => setShowDeleteConfirm(true)}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm hover:bg-red-700"
+                >
+                  Delete Account
+                </button>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-md w-full">
+            <h3 className="text-xl font-bold mb-4">Confirm Account Deletion</h3>
+            <p className="mb-6">Are you sure you want to permanently delete your account? All your data will be lost.</p>
+            <div className="flex justify-end space-x-4">
+              <button 
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleDelete}
+                disabled={isLoading}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+              >
+                {isLoading ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -1,9 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { FaUser, FaLock, FaPrayingHands, FaQuran, FaHotel } from 'react-icons/fa';
 import { GiPrayerBeads } from 'react-icons/gi';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { AuthContext } from '../../context/AuthContext';
 
 const Login = () => {
+  const { login, isLoading, authError, setAuthError } = useAuth();
+  const navigate = useNavigate();
+  
   const [loginData, setLoginData] = useState({
     email: '',
     password: '',
@@ -22,13 +27,24 @@ const Login = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear error when user starts typing
+    if (authError) setAuthError(null);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Handle login logic
-    console.log('Login data:', loginData);
-    // Redirect to dashboard or show error
+    
+    const { success } = await login({
+      email: loginData.email,
+      password: loginData.password
+    });
+    
+    if (success) {
+      console.log('Redirecting...');
+
+      navigate('/account');
+    }
   };
 
   return (
@@ -99,6 +115,13 @@ const Login = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-xl p-8">
+            {/* Error Message */}
+            {authError && (
+              <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm">
+                {authError}
+              </div>
+            )}
+
             <div className="space-y-6">
               {/* Email Field */}
               <div>
@@ -118,6 +141,7 @@ const Login = () => {
                     className="pl-10 w-full border border-gray-300 rounded-lg py-3 px-4 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     placeholder="Enter your email"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -140,6 +164,7 @@ const Login = () => {
                     className="pl-10 w-full border border-gray-300 rounded-lg py-3 px-4 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                     placeholder="Enter your password"
                     required
+                    disabled={isLoading}
                   />
                 </div>
               </div>
@@ -154,6 +179,7 @@ const Login = () => {
                     checked={loginData.rememberMe}
                     onChange={handleChange}
                     className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                    disabled={isLoading}
                   />
                   <label htmlFor="rememberMe" className="ml-2 block text-sm text-gray-700">
                     Remember me
@@ -168,9 +194,22 @@ const Login = () => {
               <div>
                 <button
                   type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-150 shadow-md hover:shadow-lg"
+                  disabled={isLoading}
+                  className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-150 shadow-md hover:shadow-lg ${
+                    isLoading ? 'opacity-75 cursor-not-allowed' : ''
+                  }`}
                 >
-                  Sign In
+                  {isLoading ? (
+                    <span className="flex items-center justify-center">
+                      <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                      Signing in...
+                    </span>
+                  ) : (
+                    'Sign In'
+                  )}
                 </button>
               </div>
 
@@ -188,7 +227,8 @@ const Login = () => {
               <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  disabled={isLoading}
+                  className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm-2 16h-2v-6h2v6zm-1-6.891c-.607 0-1.1-.496-1.1-1.109 0-.612.492-1.109 1.1-1.109s1.1.497 1.1 1.109c0 .613-.493 1.109-1.1 1.109zm8 6.891h-1.998v-2.861c0-1.881-2.002-1.722-2.002 0v2.861h-2v-6h2v1.093c.872-1.616 4-1.736 4 1.548v3.359z" />
@@ -197,7 +237,8 @@ const Login = () => {
                 </button>
                 <button
                   type="button"
-                  className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  disabled={isLoading}
+                  className="w-full inline-flex justify-center items-center py-2 px-4 border border-gray-300 rounded-lg shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
                 >
                   <svg className="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm6.066 9.645c.183 4.04-2.83 8.544-8.164 8.544-1.622 0-3.131-.476-4.402-1.291 1.524.18 3.045-.244 4.252-1.189-1.256-.023-2.317-.854-2.684-1.995.451.086.895.061 1.298-.049-1.381-.278-2.335-1.522-2.304-2.853.388.215.83.344 1.301.359-1.279-.855-1.641-2.544-.889-3.835 1.416 1.738 3.533 2.881 5.92 3.001-.419-1.796.944-3.527 2.799-3.527.825 0 1.572.349 2.096.907.654-.128 1.27-.368 1.824-.697-.215.671-.67 1.233-1.263 1.589.581-.07 1.135-.224 1.649-.453-.384.578-.87 1.084-1.433 1.489z" />
