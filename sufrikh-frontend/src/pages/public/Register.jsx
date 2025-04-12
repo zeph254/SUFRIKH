@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import  AuthContext  from '../../context/AuthContext';
 import { FaUser, FaEnvelope, FaLock, FaPhone, FaIdCard, FaPrayingHands, FaVenusMars } from 'react-icons/fa';
 import { GiPrayerBeads } from 'react-icons/gi';
+import { useAuth } from '../../context/AuthContext';
 
 const Register = () => {
-  const { register } = useContext(AuthContext);
+  const { register } = useAuth();
   const navigate = useNavigate();
   
   const [formData, setFormData] = useState({

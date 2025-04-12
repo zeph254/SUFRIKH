@@ -1,9 +1,18 @@
-import React, { useState, useContext, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import  AuthContext  from '../../context/AuthContext';
-import { FaUser, FaHistory, FaPrayingHands, FaStar, FaCog, FaSignOutAlt, 
-         FaCheckCircle, FaCamera, FaTrash, FaPhone, FaVenusMars, FaIdCard } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
+import { toast } from 'react-toastify';
+import { 
+  FaUser, FaHistory, FaPrayingHands, FaStar, FaCog, FaSignOutAlt, 
+  FaCheckCircle, FaCamera, FaTrash, FaPhone, FaVenusMars, FaIdCard 
+} from 'react-icons/fa';
 import { GiMeal, GiPrayerBeads } from 'react-icons/gi';
+import axios from 'axios';
+import { 
+  getProfilePictureUrl,
+  getDefaultProfilePictureUrl 
+} from '../../services/utils/imageUtils'; // Adjust the import path as necessary
+import { validateUserData } from '../../services/utils/userValidation';
 
 const AccountPage = () => {
   const { 
@@ -11,46 +20,138 @@ const AccountPage = () => {
     logout, 
     updateUser, 
     deleteAccount,
+    updateProfilePicture,
     isLoading,
     authError,
-    setAuthError
-  } = useContext(AuthContext);
-  const navigate = useNavigate();
+    setAuthError,
+    getUserById,
+    token // Get token directly from useAuth()
+  } = useAuth();
   
+  const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [isUploadingProfile, setIsUploadingProfile] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
     email: '',
     phone: '',
-    gender: 'male',
-    idType: 'passport',
+    gender: '',
+    idType: '',
     idNumber: '',
     prayerInRoom: false,
     noAlcohol: true,
     zabihahOnly: true,
     specialRequests: ''
   });
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
-  // Initialize form data when user loads
-  useEffect(() => {
-    if (user) {
-      setFormData({
-        firstName: user.first_name || '',
-        lastName: user.last_name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        gender: user.gender || 'male',
-        idType: user.id_type || 'passport',
-        idNumber: user.id_number || '',
-        prayerInRoom: user.prayer_in_room || false,
-        noAlcohol: user.no_alcohol !== undefined ? user.no_alcohol : true,
-        zabihahOnly: user.zabihah_only !== undefined ? user.zabihah_only : true,
-        specialRequests: user.special_requests || ''
-      });
+  // Initialize form data when user loads or updates
+// AccountPage.jsx
+// AccountPage.jsx
+useEffect(() => {
+  if (user) {
+    const validatedUser = validateUserData(user);
+    console.log("Validated user data:", validatedUser); // Add this
+    
+    setFormData({
+      firstName: validatedUser.first_name,
+      lastName: validatedUser.last_name,
+      email: validatedUser.email,
+      phone: validatedUser.phone,
+      gender: validatedUser.gender,
+      idType: validatedUser.id_type,
+      idNumber: validatedUser.id_number,
+      prayerInRoom: validatedUser.prayer_in_room,
+      noAlcohol: validatedUser.no_alcohol,
+      zabihahOnly: validatedUser.zabihah_only,
+      specialRequests: validatedUser.special_requests
+    });
+  }
+}, [user]);; // Only re-run when user changes
+
+// Add this to ensure data is fresh
+useEffect(() => {
+  const refreshUserData = async () => {
+    if (user?.id) {
+      try {
+        await getUserById(user.id);
+      } catch (error) {
+        console.error('Failed to refresh user data:', error);
+      }
     }
-  }, [user]);
+  };
+  refreshUserData();
+}, [user?.id, getUserById]);
+
+  const API_URL = import.meta.env.VITE_API_URL;
+
+  const handleProfilePictureUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+  
+    try {
+      setIsUploadingProfile(true);
+      
+      // Additional client-side validation
+      const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!validTypes.includes(file.type)) {
+        toast.error('Please upload a JPEG, PNG, or WebP image');
+        return;
+      }
+  
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('File size must be less than 5MB');
+        return;
+      }
+  
+      const response = await updateProfilePicture(file);
+      
+      if (response?.data?.profilePicture) {
+        toast.success('Profile picture updated!');
+      } else {
+        throw new Error('Failed to get updated profile picture URL');
+      }
+    } catch (error) {
+      console.error('Upload error details:', {
+        message: error.message,
+        response: error.response,
+        stack: error.stack
+      });
+      
+      if (error.response?.status === 401) {
+        toast.error('Session expired. Please login again.');
+        logout();
+      } else {
+        toast.error(error.response?.data?.message || 'Upload failed');
+      }
+    } finally {
+      setIsUploadingProfile(false);
+      e.target.value = ''; // Reset the file input
+    }
+  };
+  const handleDelete = async () => {
+    try {
+      await deleteAccount();
+      toast.success('Account deleted successfully', {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      navigate('/');
+    } catch (error) {
+      console.error("Delete error:", error);
+      toast.error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to delete account',
+        {
+          position: "top-center",
+          autoClose: 5000,
+        }
+      );
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -59,11 +160,11 @@ const AccountPage = () => {
       [name]: type === 'checkbox' ? checked : value
     }));
     
-    // Clear error when user starts typing
     if (authError) setAuthError(null);
   };
-
+  
   const handleSave = async () => {
+    setIsUpdating(true);
     try {
       const updatedData = {
         firstName: formData.firstName,
@@ -77,22 +178,50 @@ const AccountPage = () => {
         zabihahOnly: formData.zabihahOnly,
         specialRequests: formData.specialRequests
       };
-
+  
       await updateUser(updatedData);
+      
+      toast.success('Profile updated successfully!', {
+        position: "top-center",
+        autoClose: 3000,
+      });
+      
       setIsEditing(false);
+      
     } catch (error) {
       console.error("Update error:", error);
+      toast.error(
+        error.response?.data?.message || 
+        error.message || 
+        'Failed to update profile', 
+        {
+          position: "top-center",
+          autoClose: 5000,
+        }
+      );
+    } finally {
+      setIsUpdating(false);
     }
   };
 
-  const handleDelete = async () => {
-    try {
-      await deleteAccount();
-      navigate('/');
-    } catch (error) {
-      console.error("Delete error:", error);
-    }
-  };
+    useEffect(() => {
+      const fetchData = async () => {
+        try {
+          if (user?.id) {
+            const freshUserData = await getUserById(user.id);
+            // This will update the context
+          }
+        } catch (error) {
+          console.error('Error fetching user data:', error);
+          if (error.message.includes('Token expired') || error.response?.status === 401) {
+            logout();
+            navigate('/login');
+          }
+        }
+      };
+    
+      fetchData();
+    }, [user?.id, getUserById, logout, navigate]);
 
   if (!user) {
     return (
@@ -101,7 +230,7 @@ const AccountPage = () => {
           <p className="text-lg">You need to be logged in to view this page</p>
           <button 
             onClick={() => navigate('/login')}
-            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg"
+            className="mt-4 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors"
           >
             Go to Login
           </button>
@@ -134,17 +263,42 @@ const AccountPage = () => {
             <div className="bg-white rounded-xl shadow-md p-6 mb-6">
               <div className="flex flex-col items-center text-center mb-6">
                 <div className="relative mb-4">
-                  <img 
-                    src={user.avatar || "https://via.placeholder.com/150"} 
-                    alt={user.first_name} 
+                <img 
+                    src={getProfilePictureUrl(user?.profile_picture)}
+                    alt={`${user?.first_name} ${user?.last_name}`}
                     className="w-24 h-24 rounded-full object-cover border-4 border-emerald-100"
+                    onError={(e) => {
+                      e.target.onerror = null; // Prevent infinite loop
+                      e.target.src = getDefaultProfilePictureUrl();
+                    }}
                   />
-                  {isEditing && (
-                    <button className="absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full">
+                  
+                  <label 
+                    htmlFor="profile-upload"
+                    className={`absolute bottom-0 right-0 bg-emerald-600 text-white p-2 rounded-full cursor-pointer hover:bg-emerald-700 ${
+                      isUploadingProfile ? 'opacity-75' : ''
+                    }`}
+                  >
+                    {isUploadingProfile ? (
+                      <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                      </svg>
+                    ) : (
                       <FaCamera />
-                    </button>
-                  )}
+                    )}
+                  </label>
+                  
+                  <input
+                    id="profile-upload"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleProfilePictureUpload}
+                    className="hidden"
+                    disabled={isUploadingProfile}
+                  />
                 </div>
+                
                 <h3 className="text-xl font-bold">{user.first_name} {user.last_name}</h3>
                 <p className="text-gray-600">{user.email}</p>
                 <div className="mt-2 px-4 py-1 bg-emerald-100 text-emerald-800 rounded-full text-sm">
@@ -163,10 +317,22 @@ const AccountPage = () => {
                 {isEditing ? (
                   <button 
                     onClick={handleSave}
-                    disabled={isLoading}
-                    className="flex items-center justify-center px-4 py-3 rounded-lg bg-emerald-600 text-white font-medium w-full"
+                    disabled={isUpdating}
+                    className={`flex items-center justify-center px-4 py-3 rounded-lg bg-emerald-600 text-white font-medium w-full ${
+                      isUpdating ? 'opacity-75 cursor-not-allowed' : 'hover:bg-emerald-700'
+                    } transition-colors`}
                   >
-                    {isLoading ? 'Saving...' : 'Save Changes'}
+                    {isUpdating ? (
+                      <>
+                        <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
                   </button>
                 ) : (
                   <>
@@ -243,6 +409,7 @@ const AccountPage = () => {
                       value={formData.firstName}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      required
                     />
                   ) : (
                     <p className="text-gray-700">{user.first_name}</p>
@@ -258,6 +425,7 @@ const AccountPage = () => {
                       value={formData.lastName}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      required
                     />
                   ) : (
                     <p className="text-gray-700">{user.last_name}</p>
@@ -278,6 +446,8 @@ const AccountPage = () => {
                       value={formData.phone}
                       onChange={handleInputChange}
                       className="w-full border border-gray-300 rounded-lg py-2 px-3"
+                      pattern="[0-9]{10,15}"
+                      title="Phone number should be 10-15 digits"
                     />
                   ) : (
                     <p className="text-gray-700">{user.phone || 'Not provided'}</p>

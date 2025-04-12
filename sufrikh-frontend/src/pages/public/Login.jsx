@@ -2,8 +2,7 @@ import React, { useState, useContext } from 'react';
 import { FaUser, FaLock, FaPrayingHands, FaQuran, FaHotel } from 'react-icons/fa';
 import { GiPrayerBeads } from 'react-icons/gi';
 import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { AuthContext } from '../../context/AuthContext';
+import AuthProvider, { useAuth } from '../../context/AuthContext';
 
 const Login = () => {
   const { login, isLoading, authError, setAuthError } = useAuth();

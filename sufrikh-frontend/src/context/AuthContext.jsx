@@ -1,15 +1,18 @@
-import { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react'; // Added `useContext`
+import { createContext, useState, useEffect, useCallback, useMemo, useContext } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import authService from '../services/api/auth';
 import { toast } from 'react-toastify';
+// At the top of AuthContext.jsx, add:
+import axios from 'axios';
+// At the top of AuthContext.jsx
+const API_URL = import.meta.env.VITE_API_URL;
 
-const AuthContext = createContext();
 
+export const AuthContext = createContext();
 const AUTH_KEY = 'auth';
 
-// Export `useAuth` individually
 export const useAuth = () => {
-  const context = useContext(AuthContext); // Now `useContext` is defined
+  const context = useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -23,16 +26,56 @@ const AuthProvider = ({ children }) => {
     isLoading: true,
     authError: null
   });
+  const [isUploadingProfile, setIsUploadingProfile] = useState(false);
 
-  // Check token validity
-  const isTokenExpired = (token) => {
+  const isTokenExpired = useCallback((token) => {
     try {
       const { exp } = jwtDecode(token);
       return exp * 1000 < Date.now();
     } catch {
       return true;
     }
-  };
+  }, []);
+
+// AuthContext.jsx
+const persistAuth = useCallback(({ token, user }) => {
+  if (!token) {
+    console.error('No token provided');
+    setAuthState(prev => ({ ...prev, isLoading: false, authError: 'Authentication failed' }));
+    return;
+  }
+
+  const completeUser = user ? {
+    id: user.id,
+    email: user.email,
+    first_name: user.first_name,
+    last_name: user.last_name,
+    role: user.role,
+    profile_picture: user.profile_picture || null,
+    phone: user.phone || '',
+    gender: user.gender || 'male',
+    id_type: user.id_type || 'passport',
+    id_number: user.id_number || '',
+    prayer_in_room: user.prayer_in_room || false,
+    no_alcohol: user.no_alcohol ?? true,
+    zabihah_only: user.zabihah_only ?? true,
+    special_requests: user.special_requests || ''
+  } : null;
+
+  try {
+    localStorage.setItem(AUTH_KEY, JSON.stringify({ token, user: completeUser }));
+    setAuthState({
+      user: completeUser,
+      token,
+      isLoading: false,
+      authError: null
+    });
+  } catch (error) {
+    console.error('Persist auth error:', error);
+    setAuthState(prev => ({ ...prev, isLoading: false, authError: 'Failed to save session' }));
+    toast.error('Failed to save authentication data');
+  }
+}, []);
 
   const logout = useCallback(() => {
     try {
@@ -43,33 +86,16 @@ const AuthProvider = ({ children }) => {
         isLoading: false,
         authError: null
       });
+      toast.success('Logged out successfully');
     } catch (error) {
       console.error('Logout error:', error);
-      setAuthState(prev => ({ ...prev, authError: 'Failed to complete logout' }));
-      toast.error('Logout failed.');
+      setAuthState(prev => ({ ...prev, authError: 'Failed to logout' }));
+      toast.error('Logout failed');
     }
   }, []);
 
-  const persistAuth = useCallback(({ user, token }) => {
-    if (!user || !token) {
-      console.error('Invalid auth data');
-      setAuthState(prev => ({ ...prev, isLoading: false, authError: 'Invalid authentication data' }));
-      return;
-    }
-
-    try {
-      localStorage.setItem(AUTH_KEY, JSON.stringify({ user, token }));
-      setAuthState({
-        user,
-        token,
-        isLoading: false,
-        authError: null
-      });
-    } catch (error) {
-      console.error('Persist auth error:', error);
-      setAuthState(prev => ({ ...prev, isLoading: false, authError: 'Failed to save authentication data' }));
-      toast.error('Failed to save authentication data.');
-    }
+  const setAuthError = useCallback((error) => {
+    setAuthState(prev => ({ ...prev, authError: error }));
   }, []);
 
   useEffect(() => {
@@ -80,15 +106,32 @@ const AuthProvider = ({ children }) => {
           setAuthState(prev => ({ ...prev, isLoading: false }));
           return;
         }
-
+  
         const parsed = JSON.parse(stored);
-        if (!parsed?.user || !parsed?.token || isTokenExpired(parsed.token)) {
+        
+        // Add additional validation checks
+        if (!parsed?.token || !parsed?.user || isTokenExpired(parsed.token)) {
           localStorage.removeItem(AUTH_KEY);
           setAuthState(prev => ({ ...prev, isLoading: false }));
           return;
         }
-
-        persistAuth(parsed);
+  
+        // Verify token is still valid with backend
+        try {
+          await authService.getUser(parsed.user.id, parsed.token);
+        } catch (error) {
+          console.log('Token validation failed', error);
+          localStorage.removeItem(AUTH_KEY);
+          setAuthState(prev => ({ ...prev, isLoading: false }));
+          return;
+        }
+  
+        setAuthState({
+          user: parsed.user,
+          token: parsed.token,
+          isLoading: false,
+          authError: null
+        });
       } catch (error) {
         console.error('Auth init error:', error);
         localStorage.removeItem(AUTH_KEY);
@@ -98,27 +141,40 @@ const AuthProvider = ({ children }) => {
           isLoading: false,
           authError: 'Session expired. Please login again.'
         });
-        toast.error('Session expired. Please login again.');
       }
     };
-
+  
     initializeAuth();
-  }, [persistAuth]);
+  }, [isTokenExpired]);
 
   const login = useCallback(async (credentials) => {
     setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
-
+  
     try {
       const data = await authService.login(credentials);
       if (!data?.token || !data?.user) {
         throw new Error('Invalid response from server');
       }
+      
+      // Verify the token is valid immediately after login
+      try {
+        await authService.getUser(data.user.id, data.token);
+      } catch (error) {
+        throw new Error('Token validation failed after login');
+      }
+      
       persistAuth(data);
       toast.success('Logged in successfully!');
       return { success: true };
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed.';
-      setAuthState(prev => ({ ...prev, isLoading: false, authError: errorMessage }));
+      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+      setAuthState(prev => ({ 
+        ...prev, 
+        isLoading: false, 
+        authError: errorMessage,
+        user: null,
+        token: null
+      }));
       toast.error(errorMessage);
       return { success: false, error: errorMessage };
     }
@@ -145,23 +201,108 @@ const AuthProvider = ({ children }) => {
 
   const updateUser = useCallback(async (userData) => {
     if (!authState.token || !authState.user?.id) throw new Error('Not authenticated');
-
+    
     try {
-      const updatedUser = await authService.updateUser(
+      const response = await authService.updateUser(
         authState.user.id,
         userData,
         authState.token
       );
-      persistAuth({ user: updatedUser, token: authState.token });
+      
+      // Ensure the backend returns the complete updated user object
+      const updatedUser = response.data?.user || response.data;
+      
+      if (!updatedUser) {
+        throw new Error('No user data returned from server');
+      }
+  
+      // Create the new user data by merging existing and updated fields
+      const newUserData = {
+        ...authState.user,
+        first_name: updatedUser.first_name || userData.firstName || authState.user.first_name,
+        last_name: updatedUser.last_name || userData.lastName || authState.user.last_name,
+        phone: updatedUser.phone || userData.phone || authState.user.phone,
+        gender: updatedUser.gender || userData.gender || authState.user.gender,
+        id_type: updatedUser.id_type || userData.idType || authState.user.id_type,
+        id_number: updatedUser.id_number || userData.idNumber || authState.user.id_number,
+        prayer_in_room: updatedUser.prayer_in_room ?? userData.prayerInRoom ?? authState.user.prayer_in_room,
+        no_alcohol: updatedUser.no_alcohol ?? userData.noAlcohol ?? authState.user.no_alcohol,
+        zabihah_only: updatedUser.zabihah_only ?? userData.zabihahOnly ?? authState.user.zabihah_only,
+        special_requests: updatedUser.special_requests || userData.specialRequests || authState.user.special_requests
+      };
+  
+      // Update both state and localStorage
+      persistAuth({
+        user: newUserData,
+        token: authState.token
+      });
+      
       toast.success('Profile updated!');
-      return updatedUser;
+      return newUserData;
     } catch (error) {
       const errorMessage = error.response?.data?.message || error.message || 'Update failed.';
       setAuthState(prev => ({ ...prev, authError: errorMessage }));
       toast.error(errorMessage);
       throw error;
     }
-  }, [authState.token, authState.user?.id, persistAuth]);
+  }, [authState.token, authState.user, persistAuth]);
+
+  const updateUserProfilePicture = useCallback((newProfilePictureUrl) => {
+    setAuthState(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        profile_picture: newProfilePictureUrl
+      }
+    }));
+    
+    // Also update localStorage
+    const stored = JSON.parse(localStorage.getItem(AUTH_KEY));
+    if (stored) {
+      localStorage.setItem(AUTH_KEY, JSON.stringify({
+        ...stored,
+        user: {
+          ...stored.user,
+          profile_picture: newProfilePictureUrl
+        }
+      }));
+    }
+  }, []);
+
+  // 2. Then define updateProfilePicture which uses it
+  const updateProfilePicture = useCallback(async (file) => {
+    if (!authState.token) {
+      throw new Error('Not authenticated - no token found');
+    }
+    
+    try {
+      setIsUploadingProfile(true);
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await axios.post(
+        `${API_URL}/users/upload-profile`,
+        formData,
+        {
+          headers: {
+            'Authorization': `Bearer ${authState.token}`,
+            'Content-Type': 'multipart/form-data'
+          }
+        }
+      );
+
+      if (response.data?.data?.profilePicture) {
+        updateUserProfilePicture(response.data.data.profilePicture);
+      }
+
+      return response.data;
+    } catch (error) {
+      console.error('Upload error:', error);
+      throw error;
+    } finally {
+      setIsUploadingProfile(false);
+    }
+  }, [authState.token, updateUserProfilePicture]);
 
   const deleteAccount = useCallback(async () => {
     if (!authState.token || !authState.user?.id) throw new Error('Not authenticated');
@@ -180,20 +321,33 @@ const AuthProvider = ({ children }) => {
 
   const getUserById = useCallback(async (id) => {
     if (!authState.token) throw new Error('Not authenticated');
-
+  
     try {
-      return await authService.getUserById(id, authState.token);
+      console.log("Fetching user data for ID:", id); // Add this
+      const userData = await authService.getUser(id, authState.token);
+      console.log("Received user data:", userData); // Add this
+      
+      const completeUser = {
+        ...emptyUser, // Start with empty defaults
+        ...userData   // Override with actual data
+      };
+  
+      setAuthState(prev => ({
+        ...prev,
+        user: completeUser
+      }));
+      
+      localStorage.setItem(AUTH_KEY, JSON.stringify({
+        token: authState.token,
+        user: completeUser
+      }));
+      
+      return completeUser;
     } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Failed to fetch user.';
-      setAuthState(prev => ({ ...prev, authError: errorMessage }));
-      toast.error(errorMessage);
+      console.error("User fetch error:", error);
       throw error;
     }
   }, [authState.token]);
-
-  const setAuthError = useCallback((error) => {
-    setAuthState(prev => ({ ...prev, authError: error }));
-  }, []);
 
   const contextValue = useMemo(() => ({
     user: authState.user,
@@ -204,9 +358,11 @@ const AuthProvider = ({ children }) => {
     register,
     updateUser,
     deleteAccount,
-    getUserById,
+    updateProfilePicture,
+    getUserById,  // Add this line
     logout,
-    setAuthError
+    setAuthError,
+    updateUserProfilePicture
   }), [
     authState.user,
     authState.token,
@@ -216,16 +372,21 @@ const AuthProvider = ({ children }) => {
     register,
     updateUser,
     deleteAccount,
-    getUserById,
+    updateProfilePicture,
+    getUserById,  // Add this line
     logout,
-    setAuthError
+    setAuthError,
+    updateUserProfilePicture
   ]);
 
   return (
     <AuthContext.Provider value={contextValue}>
       {authState.isLoading ? (
         <div className="flex justify-center items-center h-screen">
-          <p className="text-lg font-semibold">Loading...</p>
+          <div className="flex flex-col items-center space-y-4">
+            <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-gray-600 text-lg font-medium">Loading, please wait...</p>
+          </div>
         </div>
       ) : (
         children
@@ -234,6 +395,4 @@ const AuthProvider = ({ children }) => {
   );
 };
 
-// Export only `AuthContext` here
-export { AuthContext };
 export default AuthProvider;
