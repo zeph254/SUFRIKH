@@ -45,7 +45,7 @@ const persistAuth = useCallback(({ token, user }) => {
     return;
   }
 
-  const completeUser = user ? {
+  const completeUser = {
     id: user.id,
     email: user.email,
     first_name: user.first_name,
@@ -60,7 +60,7 @@ const persistAuth = useCallback(({ token, user }) => {
     no_alcohol: user.no_alcohol ?? true,
     zabihah_only: user.zabihah_only ?? true,
     special_requests: user.special_requests || ''
-  } : null;
+  };
 
   try {
     localStorage.setItem(AUTH_KEY, JSON.stringify({ token, user: completeUser }));
@@ -147,38 +147,59 @@ const persistAuth = useCallback(({ token, user }) => {
     initializeAuth();
   }, [isTokenExpired]);
 
-  const login = useCallback(async (credentials) => {
-    setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
+// Add to your existing context
+const handleRoleBasedRedirect = (role) => {
+  switch(role) {
+    case 'ADMIN':
+    case 'SUPER_ADMIN':
+      return '/admin';
+    case 'WORKER':
+      return '/worker-dashboard';
+    default:
+      return '/dashboard';
+  }
+};
+
+// Update your login function// Modify the login function in AuthContext
+
+// In AuthContext.jsx
+const login = useCallback(async (credentials) => {
+  setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
   
-    try {
-      const data = await authService.login(credentials);
-      if (!data?.token || !data?.user) {
-        throw new Error('Invalid response from server');
-      }
-      
-      // Verify the token is valid immediately after login
-      try {
-        await authService.getUser(data.user.id, data.token);
-      } catch (error) {
-        throw new Error('Token validation failed after login');
-      }
-      
-      persistAuth(data);
-      toast.success('Logged in successfully!');
-      return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Login failed';
-      setAuthState(prev => ({ 
-        ...prev, 
-        isLoading: false, 
-        authError: errorMessage,
-        user: null,
-        token: null
-      }));
-      toast.error(errorMessage);
-      return { success: false, error: errorMessage };
+  try {
+    // 1. Get auth token and user data
+    const { token, user } = await authService.login(credentials);
+    
+    console.log('Auth service response:', { token, user }); // Debug log
+    
+    if (!token || !user?.id) {
+      throw new Error('Authentication failed - invalid response format');
     }
-  }, [persistAuth]);
+
+    // 2. Persist the auth data
+    persistAuth({ token, user });
+    
+    return { 
+      success: true,
+      user 
+    };
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || 
+                        error.message || 
+                        'Login failed. Please try again.';
+    
+    console.error('Login error:', errorMessage); // Debug log
+    
+    setAuthState(prev => ({ 
+      ...prev, 
+      isLoading: false, 
+      authError: errorMessage
+    }));
+    
+    toast.error(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}, [persistAuth]);
 
   const register = useCallback(async (userData) => {
     setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
@@ -376,7 +397,8 @@ const persistAuth = useCallback(({ token, user }) => {
     getUserById,  // Add this line
     logout,
     setAuthError,
-    updateUserProfilePicture
+    updateUserProfilePicture,
+
   ]);
 
   return (

@@ -1,25 +1,33 @@
-import About from './pages/public/About';
-import Contact from './pages/public/Contact';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import Layout from './components/common/Layout';
+import ProtectedRoute from './context/ProtectedRoutes';
+
+// Import from correct paths - adjust these based on your actual file structure
 import Home from './pages/public/Home';
-import Nopage from './pages/public/NoPage';
 import Login from './pages/public/Login';
 import Register from './pages/public/Register';
 import ForgotPassword from './pages/public/ForgotPassword';
 import ResetPassword from './pages/public/ResetPassword';
+import Hotels from './pages/public/Hotels';
+import Restaurants from './pages/public/Restaurants';
+import Contact from './pages/public/Contact';
+import About from './pages/public/About';
 import BookNow from './pages/public/BookNow';
+import Unauthorized from './pages/public/Unauthorized';
+import Account from './pages/protected/Account';
+import Dashboard from './pages/protected/Dashboard';
 import Bookings from './pages/protected/Bookings';
 import Orders from './pages/protected/Orders';
 import AdminPanel from './pages/protected/admin/AdminPanel';
-import Hotels from './pages/public/Hotels';
-import Dashboard from './pages/protected/Dashboard';
-import Restaurants from './pages/public/Restaurants';
 import UserManagement from './pages/protected/admin/UserManagment';
-import Account from './pages/public/Account';
-import Unauthorized from './pages/public/Unauthorized'; // Add this import
-import Layout from './components/common/Layout';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import ProtectedRoute from './context/ProtectedRoutes'; // Make sure this path is correct
-import './App.css';
+import WorkerDashboard from './pages/protected/worker/WorkerDashboard';
+import TaskManagement from './pages/protected/worker/TaskManagement';
+import Nopage from './pages/public/Nopage';
+
+// If these don't exist yet, you'll need to create them:
+import AdminSettings from './pages/protected/admin/AdminSettings';
+import AuditLogs from './pages/protected/admin/AuditLogs';
+import './App.css'; // Ensure you have your CSS imported
 
 function App() {
   return (
@@ -38,22 +46,41 @@ function App() {
           <Route path="about" element={<About />} />
           <Route path="book-now" element={<BookNow />} />
           <Route path="unauthorized" element={<Unauthorized />} />
+          <Route path="users" element={<UserManagement />} />
           
-          {/* Protected routes */}
+          {/* Authenticated user routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="account" element={<Account />} />
+          </Route>
+
+          {/* Customer routes */}
+          <Route element={<ProtectedRoute allowedRoles={['CUSTOMER']} />}>
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="bookings" element={<Bookings />} />
             <Route path="orders" element={<Orders />} />
           </Route>
 
-          {/* Admin-only routes */}
-          <Route element={<ProtectedRoute roles={['admin']} />}>
-            <Route path="admin" element={<AdminPanel />} />
-            <Route path="user-management" element={<UserManagement />} />
+          {/* Worker routes */}
+          <Route element={<ProtectedRoute allowedRoles={['WORKER']} />}>
+            <Route path="worker-dashboard" element={<WorkerDashboard />} />
+            <Route path="tasks" element={<TaskManagement />} />
           </Route>
 
-          {/* 404 page */}
+          {/* Admin routes */}
+          <Route element={<ProtectedRoute allowedRoles={['ADMIN']} />}>
+            <Route path="admin" element={<AdminPanel />}>
+            
+              
+            </Route>
+          </Route>
+
+          {/* Super Admin routes */}
+          <Route element={<ProtectedRoute allowedRoles={['SUPER_ADMIN']} />}>
+            <Route path="admin/settings" element={<AdminSettings />} />
+            <Route path="admin/audit-logs" element={<AuditLogs />} />
+          </Route>
+
+          {/* 404 */}
           <Route path="*" element={<Nopage />} />
         </Route>
       </Routes>

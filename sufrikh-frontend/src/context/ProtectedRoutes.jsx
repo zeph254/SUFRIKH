@@ -1,23 +1,29 @@
 import { useAuth } from '../context/AuthContext';
-import { Navigate, Outlet } from 'react-router-dom';
-import LoadingSpinner from './LoadingSpinner'; // Create this component
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import LoadingSpinner from './LoadingSpinner';
 
-const ProtectedRoute = ({ roles }) => {
-  const { user, isLoading } = useAuth();
+const ProtectedRoute = ({ allowedRoles, children }) => {
+  const { user, isLoading, authError } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return <LoadingSpinner />;
   }
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  if (authError || !user?.id) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  if (roles && !roles.includes(user.role)) {
-    return <Navigate to="/unauthorized" replace />;
+  // Additional check for complete user data
+  if (!user.first_name || !user.email) {
+    return <LoadingSpinner />;
   }
 
-  return <Outlet />;
-};
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    // ... existing role handling
+  }
+
+  return children ? children : <Outlet />;
+};;
 
 export default ProtectedRoute;

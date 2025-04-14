@@ -1,81 +1,180 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   FaUsers, FaUserPlus, FaSearch, FaUserEdit, 
   FaUserShield, FaUserTimes, FaPrayingHands,
-  FaQuran, FaIdCard, FaEnvelope, FaPhone
+  FaQuran, FaIdCard, FaEnvelope, FaPhone, FaUserCog
 } from 'react-icons/fa';
 import { GiPrayerBeads } from 'react-icons/gi';
+import { useAuth } from '../../../context/AuthContext';
+import axios from 'axios';
+import { toast } from 'react-toastify';
 
 const UserManagement = () => {
-  // Sample user data
-  const [users, setUsers] = useState([
-    {
-      id: 1,
-      name: 'Ahmed Khan',
-      email: 'ahmed@sufrikh.com',
-      role: 'Manager',
-      phone: '+966 50 123 4567',
-      status: 'active',
-      prayerAccess: true,
-      lastLogin: '2 hours ago'
-    },
-    {
-      id: 2,
-      name: 'Fatima Al-Mansoor',
-      email: 'fatima@sufrikh.com',
-      role: 'Receptionist',
-      phone: '+966 50 765 4321',
-      status: 'active',
-      prayerAccess: false,
-      lastLogin: '1 day ago'
-    },
-    {
-      id: 3,
-      name: 'Yusuf Abdullah',
-      email: 'yusuf@sufrikh.com',
-      role: 'Housekeeping',
-      phone: '+966 50 987 6543',
-      status: 'inactive',
-      prayerAccess: true,
-      lastLogin: '1 week ago'
-    }
-  ]);
-
+  const { user: currentUser } = useAuth();
+  const [users, setUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [selectedUser, setSelectedUser] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [formData, setFormData] = useState({
+    firstName: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    role: 'WORKER',
+    position: '',
+    department: ''
+  });
+
+  // Fetch all users
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await axios.get('/api/admin/workers', {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        setUsers(response.data.workers || []);
+      } catch (error) {
+        toast.error('Failed to fetch workers');
+        console.error('Fetch workers error:', error);
+        setUsers([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (currentUser?.role === 'ADMIN' || currentUser?.role === 'SUPER_ADMIN') {
+      fetchUsers();
+    } else {
+      setLoading(false);
+    }
+  }, [currentUser]);
 
   // Filter users based on search
   const filteredUsers = users.filter(user =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    `${user.first_name} ${user.last_name}`.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
     user.role.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  // Handle user status change
-  const toggleStatus = (userId) => {
-    setUsers(users.map(user =>
-      user.id === userId 
-        ? { ...user, status: user.status === 'active' ? 'inactive' : 'active' }
-        : user
-    ));
+  // Handle form input changes
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
   };
 
-  // Handle prayer access change
-  const togglePrayerAccess = (userId) => {
-    setUsers(users.map(user =>
-      user.id === userId 
-        ? { ...user, prayerAccess: !user.prayerAccess }
-        : user
-    ));
+  // Handle worker creation/update
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const payload = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        position: formData.position,
+        department: formData.department
+      };
+
+      if (selectedUser) {
+        // Update existing worker
+        await axios.put(`/api/admin/workers/${selectedUser.id}`, payload, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        toast.success('Worker updated successfully');
+      } else {
+        // Create new worker
+        await axios.post('/api/admin/workers', payload, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+        toast.success('Worker created successfully');
+      }
+      setShowModal(false);
+      // Refresh workers list
+      window.location.reload();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Operation failed');
+      console.error('Worker operation error:', error);
+    }
   };
 
-  // Handle user deletion
-  const deleteUser = (userId) => {
-    setUsers(users.filter(user => user.id !== userId));
-    setShowDeleteConfirm(false);
+  // Handle worker deletion
+  const deleteWorker = async () => {
+    try {
+      await axios.delete(`/api/admin/workers/${selectedUser.id}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      toast.success('Worker deleted successfully');
+      setShowDeleteConfirm(false);
+      // Refresh workers list
+      window.location.reload();
+    } catch (error) {
+      toast.error(error.response?.data?.error || 'Deletion failed');
+      console.error('Delete worker error:', error);
+    }
   };
+
+  // Open modal for editing or creating worker
+  const openWorkerModal = (worker = null) => {
+    setSelectedUser(worker);
+    setFormData({
+      firstName: worker?.first_name || '',
+      lastName: worker?.last_name || '',
+      email: worker?.email || '',
+      phone: worker?.phone || '',
+      position: worker?.position || '',
+      department: worker?.department || ''
+    });
+    setShowModal(true);
+  };
+
+  // Toggle worker status
+  const toggleStatus = async (workerId) => {
+    try {
+      await axios.put(`/api/admin/workers/${workerId}/toggle-status`, {}, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+      toast.success('Worker status updated');
+      // Refresh workers list
+      window.location.reload();
+    } catch (error) {
+      toast.error('Failed to update status');
+      console.error('Toggle status error:', error);
+    }
+  };
+
+  if (!currentUser || (currentUser.role !== 'ADMIN' && currentUser.role !== 'SUPER_ADMIN')) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-red-600 mb-4">Access Denied</h2>
+          <p>You don't have permission to view this page.</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="p-6 bg-gray-50 min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-emerald-500"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 bg-gray-50 min-h-screen">
@@ -84,18 +183,17 @@ const UserManagement = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-emerald-800 flex items-center">
-              <FaUsers className="mr-2" /> User Management
+              <FaUsers className="mr-2" /> Worker Management
             </h1>
-            <p className="text-gray-600">Manage all staff accounts and permissions</p>
+            <p className="text-gray-600">
+              Manage worker accounts for your organization
+            </p>
           </div>
           <button 
-            onClick={() => {
-              setCurrentUser(null);
-              setShowModal(true);
-            }}
+            onClick={() => openWorkerModal()}
             className="mt-4 md:mt-0 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg flex items-center"
           >
-            <FaUserPlus className="mr-2" /> Add New User
+            <FaUserPlus className="mr-2" /> Add New Worker
           </button>
         </div>
 
@@ -108,46 +206,32 @@ const UserManagement = () => {
               </div>
               <input
                 type="text"
-                placeholder="Search users by name, email or role..."
+                placeholder="Search workers by name, email..."
                 className="pl-10 pr-4 py-2 w-full border rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="flex space-x-2">
-              <select className="border rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                <option>All Roles</option>
-                <option>Manager</option>
-                <option>Receptionist</option>
-                <option>Housekeeping</option>
-                <option>Kitchen Staff</option>
-              </select>
-              <select className="border rounded-lg px-3 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
-            </div>
           </div>
         </div>
 
-        {/* Users Table */}
+        {/* Workers Table */}
         <div className="bg-white rounded-xl shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    User
+                    Worker
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Contact
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Role
+                    Position
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Prayer Access
+                    Department
                   </th>
                   <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -159,68 +243,64 @@ const UserManagement = () => {
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <tr key={user.id} className="hover:bg-gray-50">
+                  filteredUsers.map((worker) => (
+                    <tr key={worker.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center">
                           <div className="flex-shrink-0 h-10 w-10 rounded-full bg-emerald-100 flex items-center justify-center text-emerald-600">
-                            {user.name.charAt(0)}
+                            {worker.first_name.charAt(0)}{worker.last_name.charAt(0)}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                            <div className="text-sm text-gray-500">{user.email}</div>
+                            <div className="text-sm font-medium text-gray-900">
+                              {worker.first_name} {worker.last_name}
+                            </div>
+                            <div className="text-sm text-gray-500">{worker.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900 flex items-center">
-                          <FaPhone className="mr-2 text-gray-400" /> {user.phone}
+                          <FaPhone className="mr-2 text-gray-400" /> {worker.phone || 'N/A'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="px-2 py-1 text-xs rounded-full bg-blue-100 text-blue-800">
-                          {user.role}
-                        </span>
+                        <div className="text-sm text-gray-900">
+                          {worker.position || 'N/A'}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {worker.department || 'N/A'}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => togglePrayerAccess(user.id)}
-                          className={`p-1 rounded-full ${user.prayerAccess ? 'text-green-600 bg-green-100' : 'text-gray-400 bg-gray-100'}`}
-                          title={user.prayerAccess ? 'Revoke prayer access' : 'Grant prayer access'}
-                        >
-                          <FaPrayingHands />
-                        </button>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <button
-                          onClick={() => toggleStatus(user.id)}
+                          onClick={() => toggleStatus(worker.id)}
                           className={`px-2 py-1 text-xs rounded-full ${
-                            user.status === 'active' 
+                            worker.is_active 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {user.status}
+                          {worker.is_active ? 'Active' : 'Inactive'}
                         </button>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                         <button
-                          onClick={() => {
-                            setCurrentUser(user);
-                            setShowModal(true);
-                          }}
+                          onClick={() => openWorkerModal(worker)}
                           className="text-emerald-600 hover:text-emerald-900 mr-4"
-                          title="Edit user"
+                          title="Edit worker"
                         >
                           <FaUserEdit />
                         </button>
                         <button
                           onClick={() => {
-                            setCurrentUser(user);
+                            setSelectedUser(worker);
                             setShowDeleteConfirm(true);
                           }}
                           className="text-red-600 hover:text-red-900"
-                          title="Delete user"
+                          title="Delete worker"
+                          disabled={worker.id === currentUser.id}
                         >
                           <FaUserTimes />
                         </button>
@@ -230,7 +310,7 @@ const UserManagement = () => {
                 ) : (
                   <tr>
                     <td colSpan="6" className="px-6 py-4 text-center text-gray-500">
-                      No users found matching your search criteria
+                      No workers found matching your search criteria
                     </td>
                   </tr>
                 )}
@@ -239,35 +319,53 @@ const UserManagement = () => {
           </div>
         </div>
 
-        {/* User Edit/Create Modal */}
+        {/* Worker Edit/Create Modal */}
         {showModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
               <div className="p-6">
                 <h2 className="text-xl font-bold mb-4 flex items-center">
-                  {currentUser ? <FaUserEdit className="mr-2" /> : <FaUserPlus className="mr-2" />}
-                  {currentUser ? 'Edit User' : 'Create New User'}
+                  {selectedUser ? <FaUserEdit className="mr-2" /> : <FaUserPlus className="mr-2" />}
+                  {selectedUser ? 'Edit Worker' : 'Create New Worker'}
                 </h2>
                 
-                <form>
+                <form onSubmit={handleSubmit}>
                   <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                      <input
-                        type="text"
-                        defaultValue={currentUser?.name || ''}
-                        className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter full name"
-                      />
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">First Name</label>
+                        <input
+                          type="text"
+                          name="firstName"
+                          value={formData.firstName}
+                          onChange={handleInputChange}
+                          className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Last Name</label>
+                        <input
+                          type="text"
+                          name="lastName"
+                          value={formData.lastName}
+                          onChange={handleInputChange}
+                          className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+                          required
+                        />
+                      </div>
                     </div>
                     
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
                       <input
                         type="email"
-                        defaultValue={currentUser?.email || ''}
+                        name="email"
+                        value={formData.email}
+                        onChange={handleInputChange}
                         className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter email address"
+                        required
+                        disabled={!!selectedUser}
                       />
                     </div>
                     
@@ -275,36 +373,33 @@ const UserManagement = () => {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
                       <input
                         type="tel"
-                        defaultValue={currentUser?.phone || ''}
+                        name="phone"
+                        value={formData.phone}
+                        onChange={handleInputChange}
                         className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
-                        placeholder="Enter phone number"
                       />
                     </div>
                     
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
-                      <select 
-                        defaultValue={currentUser?.role || ''}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Position</label>
+                      <input
+                        type="text"
+                        name="position"
+                        value={formData.position}
+                        onChange={handleInputChange}
                         className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
-                      >
-                        <option value="">Select role</option>
-                        <option value="Manager">Manager</option>
-                        <option value="Receptionist">Receptionist</option>
-                        <option value="Housekeeping">Housekeeping</option>
-                        <option value="Kitchen Staff">Kitchen Staff</option>
-                      </select>
+                      />
                     </div>
                     
-                    <div className="flex items-center">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Department</label>
                       <input
-                        type="checkbox"
-                        id="prayerAccess"
-                        defaultChecked={currentUser?.prayerAccess || false}
-                        className="h-4 w-4 text-emerald-600 focus:ring-emerald-500 border-gray-300 rounded"
+                        type="text"
+                        name="department"
+                        value={formData.department}
+                        onChange={handleInputChange}
+                        className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
                       />
-                      <label htmlFor="prayerAccess" className="ml-2 block text-sm text-gray-700">
-                        Grant prayer facility access
-                      </label>
                     </div>
                   </div>
                   
@@ -320,7 +415,7 @@ const UserManagement = () => {
                       type="submit"
                       className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
                     >
-                      {currentUser ? 'Update User' : 'Create User'}
+                      {selectedUser ? 'Update Worker' : 'Create Worker'}
                     </button>
                   </div>
                 </form>
@@ -338,7 +433,7 @@ const UserManagement = () => {
                   <FaUserTimes className="mr-2" /> Confirm Deletion
                 </h2>
                 <p className="mb-6">
-                  Are you sure you want to delete user <strong>{currentUser?.name}</strong>? This action cannot be undone.
+                  Are you sure you want to delete worker <strong>{selectedUser?.first_name} {selectedUser?.last_name}</strong>? This action cannot be undone.
                 </p>
                 <div className="flex justify-end space-x-3">
                   <button
@@ -348,10 +443,10 @@ const UserManagement = () => {
                     Cancel
                   </button>
                   <button
-                    onClick={() => deleteUser(currentUser.id)}
+                    onClick={deleteWorker}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                   >
-                    Delete User
+                    Delete Worker
                   </button>
                 </div>
               </div>
