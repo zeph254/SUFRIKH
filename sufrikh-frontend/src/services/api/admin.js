@@ -12,32 +12,32 @@ const getAuthHeaders = (token) => ({
 
 // Worker management
 export const getWorkers = (token) => {
-  return axios.get(`${API_URL}/admin/workers`, getAuthHeaders(token));
+  return axios.get(`${API_URL}admin/workers`, getAuthHeaders(token));
 };
 
 export const createWorker = (workerData, token) => {
-  return axios.post(`${API_URL}/admin/workers`, workerData, getAuthHeaders(token));
+  return axios.post(`${API_URL}admin/workers`, workerData, getAuthHeaders(token));
 };
 
 export const updateWorker = (id, workerData, token) => {
-  return axios.put(`${API_URL}/admin/workers/${id}`, workerData, getAuthHeaders(token));
+  return axios.put(`${API_URL}admin/workers/${id}`, workerData, getAuthHeaders(token));
 };
 
 export const deleteWorker = (id, token) => {
-  return axios.delete(`${API_URL}/admin/workers/${id}`, getAuthHeaders(token));
+  return axios.delete(`${API_URL}admin/workers/${id}`, getAuthHeaders(token));
 };
 
 export const toggleWorkerStatus = (id, token) => {
-  return axios.put(`${API_URL}/admin/workers/${id}/toggle-status`, {}, getAuthHeaders(token));
+  return axios.put(`${API_URL}admin/workers/${id}/toggle-status`, {}, getAuthHeaders(token));
 };
 
 // Admin management
 export const getAdmins = (token) => {
-  return axios.get(`${API_URL}/admin/admins`, getAuthHeaders(token));
+  return axios.get(`${API_URL}admin/admins`, getAuthHeaders(token)); // Removed extra /
 };
 
 export const createAdmin = (adminData, token) => {
-  return axios.post(`${API_URL}/admin/admins`, adminData, getAuthHeaders(token));
+  return axios.post(`${API_URL}admin/admins`, adminData, getAuthHeaders(token));
 };
 
 export const updateAdmin = (id, adminData, token) => {

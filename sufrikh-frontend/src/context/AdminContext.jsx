@@ -4,6 +4,8 @@ import axios from 'axios';
 import { toast } from 'react-toastify';
 import { useAuth } from './AuthContext';
 
+const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api/').replace(/\/?$/, '/');
+
 const AdminContext = createContext();
 
 export const AdminProvider = ({ children }) => {
@@ -13,40 +15,50 @@ export const AdminProvider = ({ children }) => {
   const [error, setError] = useState(null);
 
   // Get all admins
-  const getAdmins = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await axios.get('/api/admin/admins', {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setAdmins(response.data.admins || []);
-      return response.data.admins;
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to fetch admins');
-      toast.error('Failed to fetch admins');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+// src/context/AdminContext.jsx
+const getAdmins = useCallback(async () => {
+  setLoading(true);
+  try {
+    const response = await axios.get(`${API_URL}admin/admins`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    console.log('Admins response:', response.data); // Debug log
+    setAdmins(response.data.admins || response.data || []);
+    return response.data.admins || response.data || [];
+  } catch (err) {
+    console.error('Error fetching admins:', err);
+    setError(err.response?.data?.error || 'Failed to fetch admins');
+    toast.error('Failed to fetch admins');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
 
   // Create a new admin
+
+
   const createAdmin = useCallback(async (adminData) => {
     setLoading(true);
     try {
-      const response = await axios.post('/api/admin/admins', adminData, {
+      const response = await axios.post(`${API_URL}admin/admins`, adminData, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
+      
       setAdmins(prev => [...prev, response.data.admin]);
       toast.success('Admin created successfully');
       return response.data.admin;
     } catch (err) {
-      setError(err.response?.data?.error || 'Failed to create admin');
-      toast.error(err.response?.data?.error || 'Failed to create admin');
+      const errorMessage = err.response?.data?.error || 
+                          err.message || 
+                          'Failed to create admin';
+      setError(errorMessage);
+      toast.error(errorMessage);
       throw err;
     } finally {
       setLoading(false);
