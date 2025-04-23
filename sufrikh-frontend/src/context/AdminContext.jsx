@@ -55,10 +55,21 @@ const getAdmins = useCallback(async () => {
       return response.data.admin;
     } catch (err) {
       const errorMessage = err.response?.data?.error || 
-                          err.message || 
-                          'Failed to create admin';
+                         err.response?.data?.message || 
+                         err.message || 
+                         'Failed to create admin';
+      
+      // Specific handling for email conflict
+      if (err.response?.status === 400 && 
+          (errorMessage.toLowerCase().includes('email') || 
+           errorMessage.toLowerCase().includes('already'))) {
+        toast.error('This email address is already registered. Please use a different email.');
+      } else {
+        toast.error(errorMessage);
+      }
+      
+      console.error('Admin creation error:', errorMessage);
       setError(errorMessage);
-      toast.error(errorMessage);
       throw err;
     } finally {
       setLoading(false);
@@ -69,9 +80,10 @@ const getAdmins = useCallback(async () => {
   const updateAdmin = useCallback(async (id, adminData) => {
     setLoading(true);
     try {
-      const response = await axios.put(`/api/admin/admins/${id}`, adminData, {
+      const response = await axios.put(`${API_URL}admin/admins/${id}`, adminData, {
         headers: {
-          Authorization: `Bearer ${token}`
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
         }
       });
       setAdmins(prev => prev.map(a => 
@@ -87,49 +99,49 @@ const getAdmins = useCallback(async () => {
       setLoading(false);
     }
   }, [token]);
-
   // Delete an admin
-  const deleteAdmin = useCallback(async (id) => {
-    setLoading(true);
-    try {
-      await axios.delete(`/api/admin/admins/${id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setAdmins(prev => prev.filter(a => a.id !== id));
-      toast.success('Admin deleted successfully');
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to delete admin');
-      toast.error(err.response?.data?.error || 'Failed to delete admin');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+// Delete an admin
+const deleteAdmin = useCallback(async (id) => {
+  setLoading(true);
+  try {
+    await axios.delete(`${API_URL}admin/admins/${id}`, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    setAdmins(prev => prev.filter(a => a.id !== id));
+    toast.success('Admin deleted successfully');
+  } catch (err) {
+    setError(err.response?.data?.error || 'Failed to delete admin');
+    toast.error(err.response?.data?.error || 'Failed to delete admin');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
 
-  // Toggle admin status
-  const toggleAdminStatus = useCallback(async (id) => {
-    setLoading(true);
-    try {
-      const response = await axios.put(`/api/admin/admins/${id}/toggle-status`, {}, {
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-      setAdmins(prev => prev.map(a => 
-        a.id === id ? { ...a, is_active: !a.is_active } : a
-      ));
-      toast.success('Admin status updated');
-      return response.data.admin;
-    } catch (err) {
-      setError(err.response?.data?.error || 'Failed to toggle admin status');
-      toast.error('Failed to toggle admin status');
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+// Toggle admin status
+const toggleAdminStatus = useCallback(async (id) => {
+  setLoading(true);
+  try {
+    const response = await axios.put(`${API_URL}admin/admins/${id}/toggle-status`, {}, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+    setAdmins(prev => prev.map(a => 
+      a.id === id ? { ...a, is_active: !a.is_active } : a
+    ));
+    toast.success('Admin status updated');
+    return response.data.admin;
+  } catch (err) {
+    setError(err.response?.data?.error || 'Failed to toggle admin status');
+    toast.error('Failed to toggle admin status');
+    throw err;
+  } finally {
+    setLoading(false);
+  }
+}, [token]);
 
   const value = {
     admins,

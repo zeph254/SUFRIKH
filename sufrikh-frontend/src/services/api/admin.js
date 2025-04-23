@@ -32,8 +32,9 @@ export const toggleWorkerStatus = (id, token) => {
 };
 
 // Admin management
+// src/services/api/admin.js
 export const getAdmins = (token) => {
-  return axios.get(`${API_URL}admin/admins`, getAuthHeaders(token)); // Removed extra /
+  return axios.get(`${API_URL}admin/admins`, getAuthHeaders(token));
 };
 
 export const createAdmin = (adminData, token) => {
@@ -41,13 +42,13 @@ export const createAdmin = (adminData, token) => {
 };
 
 export const updateAdmin = (id, adminData, token) => {
-  return axios.put(`${API_URL}/admin/admins/${id}`, adminData, getAuthHeaders(token));
+  return axios.put(`${API_URL}admin/admins/${id}`, adminData, getAuthHeaders(token));
 };
 
 export const deleteAdmin = (id, token) => {
-  return axios.delete(`${API_URL}/admin/admins/${id}`, getAuthHeaders(token));
+  return axios.delete(`${API_URL}admin/admins/${id}`, getAuthHeaders(token)); // Fixed path
 };
 
 export const toggleAdminStatus = (id, token) => {
-  return axios.put(`${API_URL}/admin/admins/${id}/toggle-status`, {}, getAuthHeaders(token));
+  return axios.put(`${API_URL}admin/admins/${id}/toggle-status`, {}, getAuthHeaders(token)); // Fixed path
 };

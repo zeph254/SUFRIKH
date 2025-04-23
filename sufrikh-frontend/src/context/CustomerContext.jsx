@@ -120,19 +120,20 @@ export const CustomerProvider = ({ children }) => {
   const deleteCustomer = useCallback(async (id) => {
     setLoading(true);
     try {
-      await axios.delete(`${API_URL}customers/${id}`, {
+      await axios.delete(`${API_URL}customers/${id}`, {  // Remove /api from the URL
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
       setCustomers(prev => prev.filter(c => c.id !== id));
       toast.success('Customer deleted successfully');
+      return true;
     } catch (err) {
       console.error('Error deleting customer:', err);
       const errorMessage = err.response?.data?.error || 'Failed to delete customer';
       setError(errorMessage);
       toast.error(errorMessage);
-      throw err;
+      return false;
     } finally {
       setLoading(false);
     }
