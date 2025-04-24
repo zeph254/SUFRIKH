@@ -340,6 +340,36 @@ const login = useCallback(async (credentials) => {
     }
   }, [authState.token, authState.user?.id, logout]);
 
+  const forgotPassword = useCallback(async (email) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
+    
+    try {
+      const response = await authService.forgotPassword(email);
+      return { success: true, message: response.message };
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to send reset email';
+      setAuthState(prev => ({ ...prev, authError: errorMessage }));
+      throw error;
+    } finally {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+  
+  const resetPassword = useCallback(async (token, newPassword) => {
+    setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
+    
+    try {
+      const response = await authService.resetPassword(token, newPassword);
+      return { success: true, message: response.message };
+    } catch (error) {
+      const errorMessage = error.message || 'Failed to reset password';
+      setAuthState(prev => ({ ...prev, authError: errorMessage }));
+      throw error;
+    } finally {
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    }
+  }, []);
+
   const getUserById = useCallback(async (id) => {
     if (!authState.token) throw new Error('Not authenticated');
   
@@ -383,7 +413,9 @@ const login = useCallback(async (credentials) => {
     getUserById,  // Add this line
     logout,
     setAuthError,
-    updateUserProfilePicture
+    updateUserProfilePicture,
+    forgotPassword,
+    resetPassword
   }), [
     authState.user,
     authState.token,
@@ -398,6 +430,8 @@ const login = useCallback(async (credentials) => {
     logout,
     setAuthError,
     updateUserProfilePicture,
+    forgotPassword,
+    resetPassword
 
   ]);
 

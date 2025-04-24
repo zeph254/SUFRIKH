@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { FaLock, FaEye, FaEyeSlash } from "react-icons/fa";
+import { useNavigate, useParams } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
@@ -8,7 +10,14 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const { token } = useParams();
   const navigate = useNavigate();
+  const { resetPassword } = useAuth();
+
+  if (!token) {
+    navigate('/forgot-password');
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,114 +28,120 @@ const ResetPassword = () => {
       return;
     }
 
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters long.");
+      return;
+    }
+
     setLoading(true);
 
-    // Simulate API call
-    setTimeout(() => {
+    try {
+      await resetPassword(token, password);
+      navigate("/login", { 
+        state: { 
+          message: "Password reset successful! Please login with your new password." 
+        } 
+      });
+    } catch (err) {
+      setError(err.message || "Failed to reset password. The link may have expired.");
+    } finally {
       setLoading(false);
-      alert("Password reset successful!");
-      navigate("/login"); // Redirect to login page
-    }, 2000);
+    }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-900 text-white">
-      <motion.div
-        initial={{ opacity: 0, y: 50 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-md p-6 bg-gray-800 rounded-lg shadow-lg"
-      >
-        <h2 className="text-2xl font-bold text-center text-red-500">
-          Reset Password
-        </h2>
-        <p className="mt-2 text-center text-gray-400">
-          Enter your new password below.
-        </p>
-
-        <form onSubmit={handleSubmit} className="mt-6">
-          {/* New Password Field */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300">
-              New Password
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Enter new password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="w-full px-4 py-2 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-              />
-              <span
-                className="absolute top-2 right-3 cursor-pointer text-gray-500"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? "🙈" : "👁️"}
-              </span>
-            </div>
+    <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">
+      {/* Right Side - Form */}
+      <div className="w-full md:w-2/3 flex items-center justify-center p-8">
+        <motion.div
+          initial={{ opacity: 0, y: 50 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8 }}
+          className="w-full max-w-md"
+        >
+          <div className="text-center mb-8">
+            <h1 className="text-3xl font-bold text-emerald-800">Reset Password</h1>
+            <p className="text-gray-600 mt-2">Enter your new password below</p>
           </div>
 
-          {/* Confirm Password Field */}
-          <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-300">
-              Confirm Password
-            </label>
-            <input
-              type="password"
-              placeholder="Confirm new password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
-              required
-              className="w-full px-4 py-2 text-black rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500"
-            />
-          </div>
-
-          {/* Error Message */}
-          {error && (
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.5 }}
-              className="text-sm text-red-400"
-            >
-              {error}
-            </motion.p>
-          )}
-
-          {/* Reset Password Button */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full px-4 py-2 mt-4 text-white bg-red-500 rounded-lg hover:bg-red-600 transition duration-300 flex items-center justify-center"
-          >
-            {loading ? (
-              <svg
-                className="w-5 h-5 mr-2 animate-spin"
-                fill="none"
-                viewBox="0 0 24 24"
+          <form onSubmit={handleSubmit} className="bg-white shadow-xl rounded-xl p-8">
+            {/* Error Message */}
+            {error && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.5 }}
+                className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg text-sm"
               >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v8H4z"
-                ></path>
-              </svg>
-            ) : (
-              "Reset Password"
+                {error}
+              </motion.div>
             )}
-          </button>
-        </form>
-      </motion.div>
+
+            {/* Password fields */}
+            
+            {/* New Password Field */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                New Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="text-gray-400" />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Enter new password (min 8 characters)"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  minLength="8"
+                  className="pl-10 w-full border border-gray-300 rounded-lg py-3 px-4 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+                <button
+                  type="button"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 hover:text-emerald-600"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </button>
+              </div>
+            </div>
+
+            {/* Confirm Password Field */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password
+              </label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <FaLock className="text-gray-400" />
+                </div>
+                <input
+                  type="password"
+                  placeholder="Confirm new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength="8"
+                  className="pl-10 w-full border border-gray-300 rounded-lg py-3 px-4 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500"
+                />
+              </div>
+            </div>
+
+            {/* ... (keep your existing password fields code) ... */}
+            
+            <button
+              type="submit"
+              disabled={loading}
+              className={`w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium py-3 px-4 rounded-lg transition duration-150 shadow-md hover:shadow-lg ${
+                loading ? 'opacity-75 cursor-not-allowed' : ''
+              }`}
+            >
+              {loading ? 'Resetting...' : 'Reset Password'}
+            </button>
+          </form>
+        </motion.div>
+      </div>
     </div>
   );
 };

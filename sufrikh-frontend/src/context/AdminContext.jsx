@@ -104,17 +104,24 @@ const getAdmins = useCallback(async () => {
 const deleteAdmin = useCallback(async (id) => {
   setLoading(true);
   try {
-    await axios.delete(`${API_URL}admin/admins/${id}`, {
+    const response = await axios.delete(`${API_URL}admin/admins/${id}`, {
       headers: {
         Authorization: `Bearer ${token}`
       }
     });
-    setAdmins(prev => prev.filter(a => a.id !== id));
-    toast.success('Admin deleted successfully');
+    
+    if (response.status === 200) {
+      setAdmins(prev => prev.filter(a => a.id !== id));
+      toast.success('Admin deleted successfully');
+      return true; // Return success status
+    }
+    return false;
   } catch (err) {
-    setError(err.response?.data?.error || 'Failed to delete admin');
-    toast.error(err.response?.data?.error || 'Failed to delete admin');
-    throw err;
+    console.error('Delete admin error:', err);
+    const errorMsg = err.response?.data?.error || 'Failed to delete admin';
+    setError(errorMsg);
+    toast.error(errorMsg);
+    return false; // Return failure status
   } finally {
     setLoading(false);
   }

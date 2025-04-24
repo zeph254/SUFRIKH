@@ -60,17 +60,40 @@ const logout = () => {
 };
 
 // Forgot password request
+
+// Helper function to get auth headers
+
+
+// Forgot password request
 const forgotPassword = async (email) => {
-  const response = await axios.post(`${API_URL}/password/forgot`, { email });
-  return response.data;
+  try {
+    const response = await axios.post(`${API_URL}/password/forgot`, { email });
+    return response.data;
+  } catch (error) {
+    console.error('Forgot password error:', {
+      url: error.config.url,
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message
+    });
+    throw new Error(error.response?.data?.error || 'Failed to send reset email');
+  }
 };
 
 // Reset password
 const resetPassword = async (token, password) => {
-  const response = await axios.put(`${API_URL}/password/reset/${token}`, { password });
-  return response.data;
+  try {
+    const response = await axios.post(`${API_URL}/password/reset/${token}`, { password });
+    return response.data;
+  } catch (error) {
+    console.error('Reset password error:', error);
+    throw new Error(
+      error.response?.data?.error || 
+      error.response?.data?.message || 
+      'Failed to reset password. The link may have expired.'
+    );
+  }
 };
-
 // Get user details
 const getUser = async (id, token) => {
   if (!id) throw new Error('User ID is required');

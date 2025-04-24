@@ -206,7 +206,6 @@ const UserManagement = () => {
         })
       };
   
-      // Handle user creation/update
       if (selectedUser) {
         // Update existing user
         switch (activeTab) {
@@ -260,26 +259,67 @@ const UserManagement = () => {
     } catch (error) {
       console.error('Submission error:', error);
       
-      // Check for specific error cases
-      let errorMessage = error.response?.data?.error || 
-                        error.response?.data?.message || 
-                        error.message || 
-                        'Operation failed';
-      
-      // Handle email already in use case
-      if (error.response?.status === 400 && 
-          (errorMessage.toLowerCase().includes('email') || 
-           errorMessage.toLowerCase().includes('already'))) {
-        errorMessage = 'This email address is already registered. Please use a different email.';
+      // Enhanced error handling with specific cases
+      let errorMessage = 'Operation failed';
+      let shouldHighlightEmail = false;
+  
+      // Check if this is an Axios error
+      if (error.isAxiosError) {
+        const response = error.response;
         
-        // Focus on the email field if it exists in the modal
+        // Handle 400 Bad Request specifically for email conflicts
+        if (response?.status === 400) {
+          const errorData = response.data;
+          
+          // Check for email conflict messages (case insensitive)
+          if (errorData.error?.toLowerCase().includes('email') || 
+              errorData.message?.toLowerCase().includes('email') ||
+              errorData.error?.toLowerCase().includes('already exists') ||
+              errorData.message?.toLowerCase().includes('already exists')) {
+            errorMessage = 'This email address is already registered. Please use a different email.';
+            shouldHighlightEmail = true;
+          } else {
+            errorMessage = errorData.error || errorData.message || 'Invalid request data';
+          }
+        } 
+        // Handle other HTTP error statuses
+        else if (response?.status === 401) {
+          errorMessage = 'Unauthorized - Please check your permissions';
+        } 
+        else if (response?.status === 403) {
+          errorMessage = 'Forbidden - You don\'t have permission for this action';
+        } 
+        else if (response?.status === 404) {
+          errorMessage = 'Resource not found';
+        } 
+        else if (response?.status >= 500) {
+          errorMessage = 'Server error - Please try again later';
+        }
+      } 
+      // Handle non-Axios errors
+      else {
+        errorMessage = error.message || 'An unexpected error occurred';
+      }
+  
+      // Show error notification
+      toast.error(errorMessage, {
+        autoClose: 5000,
+        closeOnClick: true,
+        pauseOnHover: true,
+      });
+  
+      // Highlight email field if needed
+      if (shouldHighlightEmail) {
         const emailInput = document.querySelector('input[name="email"]');
         if (emailInput) {
           emailInput.focus();
+          emailInput.classList.add('border-red-500', 'ring-2', 'ring-red-200');
+          // Remove highlight after 3 seconds
+          setTimeout(() => {
+            emailInput.classList.remove('border-red-500', 'ring-2', 'ring-red-200');
+          }, 3000);
         }
       }
-      
-      toast.error(errorMessage);
     }
   };
 
@@ -392,7 +432,7 @@ const renderCommonFields = () => (
         name="email"
         value={formData.email}
         onChange={handleInputChange}
-        className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500"
+        className="w-full border rounded-lg px-3 py-2 focus:ring-emerald-500 focus:border-emerald-500 transition duration-200"
         required
         disabled={!!selectedUser}
       />
@@ -995,37 +1035,38 @@ const renderAdminFields = () => (
                   </button>
                  
                   <button
-                  // In the delete confirmation modal (replace the current onClick handler):
-                  onClick={async () => {
-                    try {
-                      let success;
-                      if (activeTab === 'workers') {
-                        success = await deleteWorker(selectedUser.id);
-                      } else if (activeTab === 'admins') {
-                        success = await deleteAdmin(selectedUser.id);
-                      } else {
-                        success = await deleteCustomer(selectedUser.id);
-                      }
-                      
-                      if (success) {
-                        setShowDeleteConfirm(false);
-                        // Refresh the current tab's data
+                    onClick={async () => {
+                      try {
+                        let success = false;
+                        
                         if (activeTab === 'workers') {
-                          await getWorkers();
+                          success = await deleteWorker(selectedUser.id);
                         } else if (activeTab === 'admins') {
-                          await getAdmins();
+                          success = await deleteAdmin(selectedUser.id);
                         } else {
-                          await getCustomers();
+                          success = await deleteCustomer(selectedUser.id);
                         }
+                        
+                        if (success) {
+                          setShowDeleteConfirm(false);
+                          // Refresh the current tab's data
+                          if (activeTab === 'workers') {
+                            await getWorkers();
+                          } else if (activeTab === 'admins') {
+                            await getAdmins();
+                          } else {
+                            await getCustomers();
+                          }
+                        }
+                      } catch (error) {
+                        console.error('Delete error:', error);
+                        toast.error('Failed to complete deletion process');
                       }
-                    } catch (error) {
-                      console.error('Delete error:', error);
-                    }
-                  }}
-                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-                >
-                  Delete
-                </button>
+                    }}
+                    className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    Delete
+                  </button>
                 </div>
               </div>
             </div>
