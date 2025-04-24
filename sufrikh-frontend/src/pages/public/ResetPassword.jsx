@@ -35,6 +35,9 @@ const ResetPassword = () => {
 
     setLoading(true);
 
+    console.log("Submitting password reset with token:", token);
+    console.log("API URL:", import.meta.env.VITE_API_URL);
+  
     try {
       await resetPassword(token, password);
       navigate("/login", { 
@@ -43,11 +46,13 @@ const ResetPassword = () => {
         } 
       });
     } catch (err) {
+      console.error("Reset password error details:", err);
       setError(err.message || "Failed to reset password. The link may have expired.");
     } finally {
       setLoading(false);
     }
   };
+  
 
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-gray-50">

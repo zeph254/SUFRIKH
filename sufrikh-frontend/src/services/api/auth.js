@@ -15,6 +15,7 @@ const register = async (userData) => {
   return response.data;
 };
 
+
 // Login user and fetch complete user profile
 const login = async (credentials) => {
   try {
@@ -83,7 +84,7 @@ const forgotPassword = async (email) => {
 // Reset password
 const resetPassword = async (token, password) => {
   try {
-    const response = await axios.post(`${API_URL}/password/reset/${token}`, { password });
+    const response = await axios.post(`${API_URL}/password/reset-password/${token}`, { password });
     return response.data;
   } catch (error) {
     console.error('Reset password error:', error);
