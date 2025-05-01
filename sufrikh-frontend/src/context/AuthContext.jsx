@@ -7,6 +7,8 @@ import axios from 'axios';
 // At the top of AuthContext.jsx
 const API_URL = import.meta.env.VITE_API_URL;
 
+import { useNavigate } from 'react-router-dom';
+
 
 export const AuthContext = createContext();
 const AUTH_KEY = 'auth';
@@ -18,6 +20,7 @@ export const useAuth = () => {
   }
   return context;
 };
+
 
 const AuthProvider = ({ children }) => {
   const [authState, setAuthState] = useState({
@@ -163,62 +166,55 @@ const handleRoleBasedRedirect = (role) => {
 // Update your login function// Modify the login function in AuthContext
 
 // In AuthContext.jsx
-const login = useCallback(async (credentials) => {
+// In your AuthContext.jsx, update the login and register functions:
+
+const login = useCallback(async (credentials, onSuccess) => {
   setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
   
   try {
-    // 1. Get auth token and user data
-    const { token, user } = await authService.login(credentials);
+    const response = await authService.login(credentials);
     
-    console.log('Auth service response:', { token, user }); // Debug log
-    
-    if (!token || !user?.id) {
-      throw new Error('Authentication failed - invalid response format');
+    if (response.success) {
+      persistAuth({
+        token: response.token,
+        user: response.user
+      });
+      onSuccess(response);
+      if (!response.requiresVerification && onSuccess) {
+        onSuccess(response);
+      }
     }
-
-    // 2. Persist the auth data
-    persistAuth({ token, user });
-    
-    return { 
-      success: true,
-      user 
-    };
+    return response;
   } catch (error) {
-    const errorMessage = error.response?.data?.message || 
-                        error.message || 
-                        'Login failed. Please try again.';
-    
-    console.error('Login error:', errorMessage); // Debug log
-    
-    setAuthState(prev => ({ 
-      ...prev, 
-      isLoading: false, 
-      authError: errorMessage
-    }));
-    
+    const errorMessage = error.response?.data?.message || error.message || 'Login failed';
+    setAuthState(prev => ({ ...prev, authError: errorMessage, isLoading: false }));
     toast.error(errorMessage);
     return { success: false, error: errorMessage };
   }
-}, [persistAuth]);
+}, [persistAuth]); // Removed navigate from dependencies
 
-  const register = useCallback(async (userData) => {
-    setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
+const register = useCallback(async (userData) => {
+  setAuthState(prev => ({ ...prev, isLoading: true, authError: null }));
 
-    try {
-      const data = await authService.register(userData);
-      if (!data?.token || !data?.user) {
-        throw new Error('Invalid response from server');
-      }
-      persistAuth(data);
-      toast.success('Registration successful!');
-      return { success: true };
-    } catch (error) {
-      const errorMessage = error.response?.data?.message || error.message || 'Registration failed.';
-      setAuthState(prev => ({ ...prev, isLoading: false, authError: errorMessage }));
-      toast.error(errorMessage);
-      return { success: false, error: errorMessage };
+  try {
+    const data = await authService.register(userData);
+    if (!data?.token || !data?.user) {
+      throw new Error('Invalid response from server');
     }
-  }, [persistAuth]);
+    
+    // Return user data but don't persist auth yet (wait for OTP verification)
+    return { 
+      success: true,
+      token: data.token,
+      user: data.user
+    };
+  } catch (error) {
+    const errorMessage = error.response?.data?.message || error.message || 'Registration failed.';
+    setAuthState(prev => ({ ...prev, isLoading: false, authError: errorMessage }));
+    toast.error(errorMessage);
+    return { success: false, error: errorMessage };
+  }
+}, []);
 
   const updateUser = useCallback(async (userData) => {
     if (!authState.token || !authState.user?.id) throw new Error('Not authenticated');
@@ -289,6 +285,78 @@ const login = useCallback(async (credentials) => {
       }));
     }
   }, []);
+
+  // In AuthContext.jsx
+// In your AuthContext.jsx, update the requestOTP and verifyOTP functions:
+
+const requestOTP = useCallback(async (type = 'email') => {
+  try {
+    if (!authState.token) {
+      throw new Error('Authentication token missing');
+    }
+
+    console.log('Requesting OTP with token:', authState.token); // Debug log
+    
+    const response = await axios.post(
+      `${API_URL}/otp/request`,
+      { type },
+      {
+        headers: {
+          Authorization: `Bearer ${authState.token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'Failed to send OTP');
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error('Full OTP request error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      token: authState.token,
+      user: authState.user
+    });
+    throw error;
+  }
+}, [authState.token, authState.user]);
+
+const verifyOTP = useCallback(async (otp, type = 'email') => {
+  try {
+    const response = await axios.post(
+      `${API_URL}/otp/verify`,
+      { otp, type },
+      {
+        headers: {
+          Authorization: `Bearer ${authState.token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+
+    if (!response.data.success) {
+      throw new Error(response.data.error || 'OTP verification failed');
+    }
+
+    // Update user verification status
+    setAuthState(prev => ({
+      ...prev,
+      user: {
+        ...prev.user,
+        is_verified: true
+      }
+    }));
+
+    return response.data;
+  } catch (error) {
+    console.error('OTP verification error:', error);
+    throw error;
+  }
+}, [authState.token]);
 
   // 2. Then define updateProfilePicture which uses it
   const updateProfilePicture = useCallback(async (file) => {
@@ -413,6 +481,8 @@ const login = useCallback(async (credentials) => {
     getUserById,  // Add this line
     logout,
     setAuthError,
+    requestOTP,
+    verifyOTP,
     updateUserProfilePicture,
     forgotPassword,
     resetPassword
@@ -429,6 +499,8 @@ const login = useCallback(async (credentials) => {
     getUserById,  // Add this line
     logout,
     setAuthError,
+    requestOTP,
+    verifyOTP,
     updateUserProfilePicture,
     forgotPassword,
     resetPassword

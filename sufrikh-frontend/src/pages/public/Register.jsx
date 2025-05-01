@@ -90,52 +90,64 @@ const Register = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateStep(currentStep)) return;
-    
-    if (currentStep < 3) {
-      nextStep();
-      return;
-    }
+// Update the handleSubmit function in Register.jsx
+// In your Register.jsx, update the handleSubmit function:
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateStep(currentStep)) return;
+  
+  if (currentStep < 3) {
+    nextStep();
+    return;
+  }
 
-    setIsSubmitting(true);
+  setIsSubmitting(true);
+  
+  try {
+    // Prepare data for backend
+    const userData = {
+      first_name: formData.firstName,
+      last_name: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      gender: formData.gender,
+      id_type: formData.idType,
+      id_number: formData.idNumber,
+      prayer_in_room: formData.halalPreferences.prayerInRoom,
+      no_alcohol: formData.halalPreferences.noAlcohol,
+      zabihah_only: formData.halalPreferences.zabihahOnly,
+      special_requests: formData.specialRequests
+    };
     
-    try {
-      // Prepare data for backend
-      const userData = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        email: formData.email,
-        phone: formData.phone,
-        password: formData.password,
-        gender: formData.gender,
-        id_type: formData.idType,
-        id_number: formData.idNumber,
-        halal_preferences: formData.halalPreferences,
-        special_requests: formData.specialRequests
-      };
-      
-      const response = await register(userData);
-      
-      if (response.success) {
-        navigate('/dashboard', { state: { welcome: true } });
-      } else {
-        setErrors(prev => ({
-          ...prev,
-          form: response.error || 'Registration failed'
-        }));
-      }
-    } catch (err) {
+    const response = await register(userData);
+    
+    if (response.success) {
+      // Redirect to OTP verification page instead of dashboard
+      navigate('/verify-otp', {
+        state: {
+          userId: response.user.id,
+          type: 'email',
+          redirectTo: '/dashboard',
+          welcome: true
+        }
+      });
+    } else {
       setErrors(prev => ({
         ...prev,
-        form: err.response?.data?.error || 'Registration failed. Please try again.'
+        form: response.error || 'Registration failed'
       }));
-    } finally {
-      setIsSubmitting(false);
     }
-  };
+  } catch (err) {
+    setErrors(prev => ({
+      ...prev,
+      form: err.response?.data?.error || 'Registration failed. Please try again.'
+    }));
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const nextStep = () => {
     if (validateStep(currentStep)) {

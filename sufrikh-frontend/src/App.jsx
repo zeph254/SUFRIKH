@@ -23,6 +23,7 @@ import UserManagement from './pages/protected/admin/UserManagment';
 import WorkerDashboard from './pages/protected/worker/WorkerDashboard';
 import TaskManagement from './pages/protected/worker/TaskManagement';
 import Nopage from './pages/public/Nopage';
+import OtpVerificationPage from './pages/public/OtpVerificationPage';
 
 // If these don't exist yet, you'll need to create them:
 import AdminSettings from './pages/protected/admin/AdminSettings';
@@ -42,6 +43,7 @@ function App() {
           <Route path="reset-password/:token" element={<ResetPassword />} />
           <Route path="hotels" element={<Hotels />} />
           <Route path="restaurants" element={<Restaurants />} />
+          <Route path="/verify-otp" element={<OtpVerificationPage />} />
           <Route path="contact" element={<Contact />} />
           <Route path="about" element={<About />} />
           <Route path="book-now" element={<BookNow />} />

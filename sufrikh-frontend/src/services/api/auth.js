@@ -10,43 +10,34 @@ const getAuthHeaders = (token) => ({
 });
 
 // Register a new user
+// In your auth.js service file, update the register function:
+
+
+// Update the register function in auth.js:
 const register = async (userData) => {
-  const response = await axios.post(`${API_URL}/auth/register`, userData);
-  return response.data;
-};
-
-
-// Login user and fetch complete user profile
-const login = async (credentials) => {
   try {
-    const response = await axios.post(`${API_URL}/auth/login`, credentials);
+    const response = await axios.post(`${API_URL}/auth/register`, userData);
     
-    console.log('Login response:', response.data); // Debug log
-    
-    if (!response.data?.token || !response.data?.user?.id) {
-      throw new Error('Invalid authentication response - missing token or user ID');
-    }
-
-    // Ensure the response contains all required fields
-    const userData = {
-      ...response.data.user,
-      profile_picture: response.data.user.profile_picture || null,
-      phone: response.data.user.phone || '',
-      gender: response.data.user.gender || 'male',
-      id_type: response.data.user.id_type || 'passport',
-      id_number: response.data.user.id_number || '',
-      prayer_in_room: response.data.user.prayer_in_room || false,
-      no_alcohol: response.data.user.no_alcohol ?? true,
-      zabihah_only: response.data.user.zabihah_only ?? true,
-      special_requests: response.data.user.special_requests || ''
-    };
-
+    // Return the response data but don't automatically persist auth
     return {
+      success: true,
       token: response.data.token,
-      user: userData
+      user: {
+        ...response.data.user,
+        is_verified: response.data.user.is_verified || false,
+        profile_picture: response.data.user.profile_picture || null,
+        phone: response.data.user.phone || '',
+        gender: response.data.user.gender || 'male',
+        id_type: response.data.user.id_type || 'passport',
+        id_number: response.data.user.id_number || '',
+        prayer_in_room: response.data.user.prayer_in_room || false,
+        no_alcohol: response.data.user.no_alcohol ?? true,
+        zabihah_only: response.data.user.zabihah_only ?? true,
+        special_requests: response.data.user.special_requests || ''
+      }
     };
   } catch (error) {
-    console.error('Login error:', {
+    console.error('Registration error:', {
       message: error.message,
       response: error.response?.data,
       config: error.config
@@ -55,6 +46,33 @@ const login = async (credentials) => {
   }
 };
 
+// Login user and fetch complete user profile
+const login = async (credentials) => {
+  try {
+    const response = await axios.post(`${API_URL}/auth/login`, credentials);
+    
+    console.log('Full login response:', response.data); // Debug log
+    
+    if (!response.data?.token || !response.data?.user?.id) {
+      throw new Error('Invalid authentication response');
+    }
+
+    return {
+      success: response.data.success,
+      token: response.data.token,
+      user: {
+        ...response.data.user,
+        profile_picture: response.data.user.profile_picture || null,
+        phone: response.data.user.phone || '',
+        gender: response.data.user.gender || 'male'
+      },
+      requiresVerification: response.data.requiresVerification // Ensure this is included
+    };
+  } catch (error) {
+    console.error('Login error:', error);
+    throw error;
+  }
+};
 // Logout user
 const logout = () => {
   localStorage.removeItem('auth');

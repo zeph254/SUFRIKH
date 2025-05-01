@@ -25,25 +25,34 @@ const Login = () => {
     if (authError) setAuthError(null);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    try {
-      const { success, user } = await login({
-        email: loginData.email,
-        password: loginData.password
-      });
-      
-      if (success) {
-        // Get intended path or default based on role
-        const from = location.state?.from?.pathname || getDefaultRoute(user.role);
-        navigate(from, { replace: true });
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-    }
-  };
+// Update the handleSubmit function in Login.jsx
+// In your Login.jsx, update the handleSubmit function:x
 
+// src/pages/public/Login.jsx
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  
+  try {
+    const response = await login({
+      email: loginData.email,
+      password: loginData.password
+    }, (response) => {
+      if (response.requiresVerification) {
+        navigate('/verify-otp', {
+          state: {
+            userId: response.user.id,
+            type: 'email',
+            redirectTo: location.state?.from?.pathname || '/dashboard'
+          }
+        });
+      } else {
+        navigate(location.state?.from?.pathname || '/dashboard');
+      }
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+  }
+};
   const getDefaultRoute = (role) => {
     switch(role) {
       case 'ADMIN':
