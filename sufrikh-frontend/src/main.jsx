@@ -4,6 +4,7 @@ import App from './App';
 import AuthProvider from './context/AuthContext';
 import { WorkerProvider } from './context/WorkerContext';
 import { AdminProvider } from './context/AdminContext';
+import  ErrorBoundary  from './context/ErrorBoundary';
 import './index.css';
 import { CustomerProvider } from './context/CustomerContext';
 import { ToastContainer } from 'react-toastify';
@@ -13,6 +14,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <AuthProvider>
       <WorkerProvider>
         <AdminProvider>
+          <ErrorBoundary>
           <CustomerProvider>
             <ToastContainer
               position="top-center"
@@ -36,6 +38,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             />
             <App />
           </CustomerProvider>
+          </ErrorBoundary>
         </AdminProvider>
       </WorkerProvider>
     </AuthProvider>

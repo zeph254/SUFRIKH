@@ -62,7 +62,8 @@ const persistAuth = useCallback(({ token, user }) => {
     prayer_in_room: user.prayer_in_room || false,
     no_alcohol: user.no_alcohol ?? true,
     zabihah_only: user.zabihah_only ?? true,
-    special_requests: user.special_requests || ''
+    special_requests: user.special_requests || '',
+    is_verified: user.is_verified || false
   };
 
   try {
@@ -289,44 +290,40 @@ const register = useCallback(async (userData) => {
   // In AuthContext.jsx
 // In your AuthContext.jsx, update the requestOTP and verifyOTP functions:
 
-const requestOTP = useCallback(async (type = 'email') => {
+const requestOTP = async (type = 'email') => {
   try {
     if (!authState.token) {
-      throw new Error('Authentication token missing');
+      throw new Error('No authentication token available');
     }
-
-    console.log('Requesting OTP with token:', authState.token); // Debug log
     
+    console.log('Requesting OTP with token:', authState.token);
     const response = await axios.post(
       `${API_URL}/otp/request`,
       { type },
       {
         headers: {
           Authorization: `Bearer ${authState.token}`,
-          'Content-Type': 'application/json'
-        }
+        },
       }
     );
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'Failed to send OTP');
-    }
-
     return response.data;
   } catch (error) {
-    console.error('Full OTP request error:', {
-      status: error.response?.status,
-      data: error.response?.data,
+    console.error('OTP request error:', {
       message: error.message,
-      token: authState.token,
-      user: authState.user
+      response: error.response?.data,
+      stack: error.stack
     });
     throw error;
   }
-}, [authState.token, authState.user]);
+};
 
-const verifyOTP = useCallback(async (otp, type = 'email') => {
+const verifyOTP = async (otp, type = 'email') => {
   try {
+    if (!authState.token) {
+      throw new Error('No authentication token available');
+    }
+
+    console.log('Verifying OTP with token:', authState.token);
     const response = await axios.post(
       `${API_URL}/otp/verify`,
       { otp, type },
@@ -337,26 +334,26 @@ const verifyOTP = useCallback(async (otp, type = 'email') => {
         }
       }
     );
-
-    if (!response.data.success) {
-      throw new Error(response.data.error || 'OTP verification failed');
+    
+    // Update token if a new one is returned
+    if (response.data.token) {
+      persistAuth({
+        token: response.data.token,
+        user: authState.user
+      });
     }
-
-    // Update user verification status
-    setAuthState(prev => ({
-      ...prev,
-      user: {
-        ...prev.user,
-        is_verified: true
-      }
-    }));
-
+    
     return response.data;
   } catch (error) {
-    console.error('OTP verification error:', error);
+    console.error('OTP verification error:', {
+      status: error.response?.status,
+      data: error.response?.data,
+      message: error.message,
+      stack: error.stack
+    });
     throw error;
   }
-}, [authState.token]);
+};
 
   // 2. Then define updateProfilePicture which uses it
   const updateProfilePicture = useCallback(async (file) => {
@@ -503,7 +500,10 @@ const verifyOTP = useCallback(async (otp, type = 'email') => {
     verifyOTP,
     updateUserProfilePicture,
     forgotPassword,
-    resetPassword
+    resetPassword,
+    authState.token, // Add this
+    authState.user,  // Add this
+    persistAuth    // Add this
 
   ]);
 

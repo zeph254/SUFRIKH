@@ -105,7 +105,6 @@ const handleSubmit = async (e) => {
   setIsSubmitting(true);
   
   try {
-    // Prepare data for backend
     const userData = {
       first_name: formData.firstName,
       last_name: formData.lastName,
@@ -124,20 +123,17 @@ const handleSubmit = async (e) => {
     const response = await register(userData);
     
     if (response.success) {
-      // Redirect to OTP verification page instead of dashboard
       navigate('/verify-otp', {
         state: {
           userId: response.user.id,
+          user: response.user, // Pass the full user object
           type: 'email',
           redirectTo: '/dashboard',
-          welcome: true
-        }
+          welcome: true,
+          token: response.token
+        },
+        replace: true
       });
-    } else {
-      setErrors(prev => ({
-        ...prev,
-        form: response.error || 'Registration failed'
-      }));
     }
   } catch (err) {
     setErrors(prev => ({

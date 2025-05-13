@@ -13,7 +13,8 @@ const OtpVerificationPage = () => {
     isLoading: authLoading, 
     requestOTP, 
     verifyOTP,
-    setAuthError
+    setAuthError,
+    persistAuth // Add this from useAuth
   } = useAuth();
   
   const [verificationType, setVerificationType] = useState('email');
@@ -31,10 +32,10 @@ const OtpVerificationPage = () => {
         setPageLoading(true);
         setError(null);
         
-        // Get verification details from location state or user context
         const state = location.state || {};
         const verifyType = state.type || 'email';
         const userId = state.userId || user?.id;
+        const registrationToken = state.token;
 
         if (!userId) {
           navigate('/login');
@@ -42,18 +43,27 @@ const OtpVerificationPage = () => {
         }
 
         setVerificationType(verifyType);
+        
+        // Update auth state if we have a registration token
+        if (registrationToken && registrationToken !== token) {
+          persistAuth({
+            token: registrationToken,
+            user: location.state?.user || user
+          });
+        }
+
         await requestOTP(verifyType);
         setOtpSent(true);
       } catch (err) {
         setError(err.message || 'Failed to initialize OTP verification');
-        toast.error(err.message || 'Failed to send OTP');
+        toast.error(err.message || 'Failed to initialize OTP verification');
       } finally {
         setPageLoading(false);
       }
     };
 
     initialize();
-  }, [authLoading, location.state, navigate, requestOTP, user?.id]);
+  }, [authLoading, location.state, navigate, requestOTP, user, token, persistAuth]);
 
   // Countdown timer
   useEffect(() => {
@@ -82,20 +92,36 @@ const OtpVerificationPage = () => {
   const handleVerify = async (otp) => {
     try {
       setPageLoading(true);
-      setError(null);
       
-      const isValid = await verifyOTP(otp, verificationType);
+      if (!otp || otp.length !== 6) {
+        throw new Error('Please enter a valid 6-digit code');
+      }
+
+      const response = await verifyOTP(otp, verificationType);
       
-      if (isValid) {
-        const successMessage = location.state?.welcome 
-          ? 'Registration complete! Welcome!' 
-          : 'Verification successful!';
+      if (response.success) {
+        toast.success('Verification successful!');
         
-        toast.success(successMessage);
-        navigate(location.state?.redirectTo || '/dashboard', { replace: true });
+        // Update auth state with verified status
+        persistAuth({
+          token: response.token || token,
+          user: {
+            ...(location.state?.user || user),
+            is_verified: true
+          }
+        });
+        
+        navigate(location.state?.redirectTo || '/dashboard', { 
+          replace: true
+        });
       }
     } catch (err) {
-      setError(err.message || 'Verification failed');
+      console.error('Verification error:', {
+        error: err.message,
+        response: err.response?.data,
+        timestamp: new Date().toISOString()
+      });
+      setError(err.message || 'Invalid OTP');
       toast.error(err.message || 'Invalid OTP');
     } finally {
       setPageLoading(false);

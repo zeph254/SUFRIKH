@@ -1,82 +1,118 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { toast } from 'react-toastify';
+import { useLocation, useNavigate } from 'react-router-dom';
 
-const OtpVerification = ({ 
-  onVerify, 
-  onResend, 
-  countdown, 
-  isResending,
-  isVerifying
-}) => {
+const OtpVerification = ({ onVerify, onResend, countdown, isResending, isVerifying }) => {
   const [otp, setOtp] = useState('');
   const [canResend, setCanResend] = useState(false);
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Get userId from props or location state
+  const userId = location.state?.userId;
+  const type = location.state?.type || 'email';
+  const redirect = location.state?.redirectTo;
+
+  useEffect(() => {
+    // Redirect if essential data is missing
+    if (!userId) {
+      toast.error('Session expired. Please try again.');
+      navigate('/login');
+    }
+  }, [userId, navigate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    
+
+    if (!userId) {
+      toast.error('Session expired. Please try again.');
+      navigate('/login');
+      return;
+    }
+
     if (otp.length !== 6) {
       toast.error('Please enter a 6-digit OTP');
       return;
     }
 
-    onVerify(otp);
+    onVerify(userId, otp, type);
   };
 
   const handleResendClick = () => {
+    if (!userId) {
+      toast.error('Session expired. Please try again.');
+      navigate('/login');
+      return;
+    }
+
     if (canResend || countdown === 0) {
-      onResend();
+      onResend(userId, type);
       setCanResend(false);
     }
   };
 
+  if (isVerifying) {
+    return <div>Verifying...</div>;
+  }
+
+  if (!userId) {
+    return null; // Already handled by useEffect redirect
+  }
+
   return (
     <div className="max-w-md mx-auto p-6 bg-white rounded-lg shadow-md">
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="otp" className="block text-sm font-medium text-gray-700 mb-1">
-            Enter 6-digit OTP
+      <h2 className="text-2xl font-bold mb-4">Verify OTP</h2>
+
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-gray-700 text-sm font-bold mb-2">
+            Enter OTP
           </label>
           <input
             type="text"
-            id="otp"
             value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-emerald-500 focus:border-emerald-500 text-center text-2xl tracking-widest"
-            placeholder="------"
-            maxLength={6}
+            onChange={(e) => {
+              const value = e.target.value;
+              // Only allow numbers and limit to 6 characters
+              if (/^\d*$/.test(value) && value.length <= 6) {
+                setOtp(value);
+              }
+            }}
+            className="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
             required
-            disabled={isVerifying}
+            maxLength={6}
+            inputMode="numeric"
+            pattern="\d{6}"
           />
         </div>
-        
-        <button
-          type="submit"
-          disabled={isVerifying || otp.length !== 6}
-          className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 ${
-            (isVerifying || otp.length !== 6) ? 'opacity-75 cursor-not-allowed' : ''
-          }`}
-        >
-          {isVerifying ? 'Verifying...' : 'Verify'}
-        </button>
-      </form>
-      
-      <div className="mt-4 text-center">
-        {countdown > 0 ? (
-          <p className="text-sm text-gray-500">
-            Resend OTP in {countdown} seconds
-          </p>
-        ) : (
+
+        <div className="flex justify-between">
+          <button
+            type="submit"
+            className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+          >
+            Verify
+          </button>
+
           <button
             onClick={handleResendClick}
-            disabled={isResending}
-            className={`text-sm text-emerald-600 hover:text-emerald-800 font-medium ${
-              isResending ? 'opacity-75 cursor-not-allowed' : ''
-            }`}
+            disabled={isResending || countdown > 0}
+            className={
+              countdown > 0
+                ? "bg-gray-300 text-gray-800 font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline cursor-not-allowed"
+                : "bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline"
+            }
           >
-            {isResending ? 'Sending...' : 'Resend OTP'}
+            Resend OTP {countdown > 0 ? `(${countdown})` : ''}
           </button>
-        )}
-      </div>
+        </div>
+      </form>
+      
+      {redirect && (
+        <p className="mt-4 text-sm text-gray-600">
+          You'll be redirected to {redirect} after verification
+        </p>
+      )}
     </div>
   );
 };
