@@ -22,7 +22,7 @@ import AdminPanel from './pages/protected/admin/AdminPanel';
 import UserManagement from './pages/protected/admin/UserManagment';
 import WorkerDashboard from './pages/protected/worker/WorkerDashboard';
 import TaskManagement from './pages/protected/worker/TaskManagement';
-import Nopage from './pages/public/Nopage';
+import NoPage from './pages/public/NoPage';
 import OtpVerificationPage from './pages/public/OtpVerificationPage';
 
 // If these don't exist yet, you'll need to create them:
@@ -83,7 +83,7 @@ function App() {
           </Route>
 
           {/* 404 */}
-          <Route path="*" element={<Nopage />} />
+          <Route path="*" element={<NoPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

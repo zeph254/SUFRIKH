@@ -73,61 +73,64 @@ const OtpVerificationPage = () => {
     }
   }, [countdown, otpSent]);
 
-  const handleResend = async () => {
-    try {
-      setPageLoading(true);
-      setError(null);
-      await requestOTP(verificationType);
-      setOtpSent(true);
-      setCountdown(60);
-      toast.success('New OTP sent!');
-    } catch (err) {
-      setError(err.message || 'Failed to resend OTP');
-      toast.error(err.message || 'Failed to resend OTP');
-    } finally {
-      setPageLoading(false);
+const handleResend = async () => {
+  try {
+    setPageLoading(true);
+    setError(null);
+    const response = await requestOTP(verificationType);
+    
+    if (response?.error) {
+      throw new Error(response.error);
     }
-  };
 
-  const handleVerify = async (otp) => {
-    try {
-      setPageLoading(true);
-      
-      if (!otp || otp.length !== 6) {
-        throw new Error('Please enter a valid 6-digit code');
-      }
+    setOtpSent(true);
+    setCountdown(60);
+    toast.success('New OTP sent!');
+  } catch (err) {
+    const errorMessage = err.response?.data?.error || 
+                        err.message || 
+                        'Failed to resend OTP';
+    setError(errorMessage);
+    toast.error(errorMessage);
+  } finally {
+    setPageLoading(false);
+  }
+};
 
-      const response = await verifyOTP(otp, verificationType);
-      
-      if (response.success) {
-        toast.success('Verification successful!');
-        
-        // Update auth state with verified status
-        persistAuth({
-          token: response.token || token,
-          user: {
-            ...(location.state?.user || user),
-            is_verified: true
-          }
-        });
-        
-        navigate(location.state?.redirectTo || '/dashboard', { 
-          replace: true
-        });
-      }
-    } catch (err) {
-      console.error('Verification error:', {
-        error: err.message,
-        response: err.response?.data,
-        timestamp: new Date().toISOString()
+const handleVerify = async (otp) => {
+  try {
+    setPageLoading(true);
+    setError(null);
+    
+    // Clean the OTP input
+    const cleanOtp = otp.replace(/\D/g, '');
+    
+    if (cleanOtp.length !== 6) {
+      throw new Error('Please enter exactly 6 digits');
+    }
+
+    const response = await verifyOTP(cleanOtp, verificationType);
+    
+    if (!response?.success) {
+      throw new Error(response?.error || 'Verification failed');
+    }
+
+    // Update auth state with new token if provided
+    if (response.token) {
+      persistAuth({
+        token: response.token,
+        user: { ...user, is_verified: true }
       });
-      setError(err.message || 'Invalid OTP');
-      toast.error(err.message || 'Invalid OTP');
-    } finally {
-      setPageLoading(false);
     }
-  };
 
+    navigate(location.state?.redirectTo || '/dashboard', { replace: true });
+    
+  } catch (err) {
+    setError(err.message || 'Invalid OTP. Please try again.');
+  } finally {
+    setPageLoading(false);
+  }
+};
   if (pageLoading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">

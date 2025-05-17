@@ -319,14 +319,18 @@ const requestOTP = async (type = 'email') => {
 
 const verifyOTP = async (otp, type = 'email') => {
   try {
-    if (!authState.token) {
-      throw new Error('No authentication token available');
+    if (!authState.token) throw new Error('No authentication token available');
+
+    // Ensure otp is a string and clean it
+    const otpString = String(otp).replace(/\D/g, ''); // Remove non-digit characters
+    
+    if (otpString.length !== 6) {
+      throw new Error('OTP must be 6 digits');
     }
 
-    console.log('Verifying OTP with token:', authState.token);
     const response = await axios.post(
       `${API_URL}/otp/verify`,
-      { otp, type },
+      { otp: otpString, type },
       {
         headers: {
           Authorization: `Bearer ${authState.token}`,
@@ -334,6 +338,7 @@ const verifyOTP = async (otp, type = 'email') => {
         }
       }
     );
+
     
     // Update token if a new one is returned
     if (response.data.token) {
