@@ -21,6 +21,7 @@ const register = async (userData) => {
     // Return the response data but don't automatically persist auth
     return {
       success: true,
+      requiresVerification: true,
       token: response.data.token,
       user: {
         ...response.data.user,
@@ -34,7 +35,8 @@ const register = async (userData) => {
         no_alcohol: response.data.user.no_alcohol ?? true,
         zabihah_only: response.data.user.zabihah_only ?? true,
         special_requests: response.data.user.special_requests || ''
-      }
+      },
+      redirectTo: '/verify-otp'
     };
   } catch (error) {
     console.error('Registration error:', {

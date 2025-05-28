@@ -30,8 +30,11 @@ const OtpVerification = ({ onVerify, onResend, countdown, isResending, isVerifyi
       return;
     }
 
-    if (otp.length !== 6) {
-      toast.error('Please enter a 6-digit OTP');
+  // Clean the OTP input (remove any non-digit characters)
+    const cleanOtp = otp.replace(/\D/g, '');
+    
+    if (cleanOtp.length !== 6) {
+      toast.error('Please enter a valid 6-digit OTP code');
       return;
     }
 

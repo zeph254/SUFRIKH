@@ -30,6 +30,7 @@ const AuthProvider = ({ children }) => {
     authError: null
   });
   const [isUploadingProfile, setIsUploadingProfile] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const isTokenExpired = useCallback((token) => {
     try {
@@ -319,44 +320,41 @@ const requestOTP = async (type = 'email') => {
 
 const verifyOTP = async (otp, type = 'email') => {
   try {
-    if (!authState.token) throw new Error('No authentication token available');
-
-    // Ensure otp is a string and clean it
-    const otpString = String(otp).replace(/\D/g, ''); // Remove non-digit characters
+    if (loading) return; 
+    setLoading(true);
     
-    if (otpString.length !== 6) {
-      throw new Error('OTP must be 6 digits');
+    // Ensure otp is exactly 6 digits
+    const cleanOtp = String(otp).replace(/\D/g, '');
+    if (cleanOtp.length !== 6) {
+      throw new Error('OTP must be exactly 6 digits');
     }
+    
 
     const response = await axios.post(
       `${API_URL}/otp/verify`,
-      { otp: otpString, type },
-      {
-        headers: {
-          Authorization: `Bearer ${authState.token}`,
-          'Content-Type': 'application/json'
-        }
-      }
+      { otp: cleanOtp, type },
+      { headers: { Authorization: `Bearer ${authState.token}` } }
     );
 
-    
-    // Update token if a new one is returned
-    if (response.data.token) {
+    if (response.data.success) {
+      // Update auth state with verification status
       persistAuth({
-        token: response.data.token,
-        user: authState.user
+        token: response.data.token || authState.token,
+        user: { 
+          ...authState.user, 
+          is_verified: true 
+        }
       });
+      
+      return { success: true };
     }
     
-    return response.data;
+    throw new Error(response.data.error || 'Verification failed');
   } catch (error) {
-    console.error('OTP verification error:', {
-      status: error.response?.status,
-      data: error.response?.data,
-      message: error.message,
-      stack: error.stack
-    });
+    console.error('OTP verification error:', error);
     throw error;
+  } finally {
+    setLoading(false);
   }
 };
 

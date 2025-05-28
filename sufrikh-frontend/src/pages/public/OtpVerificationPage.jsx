@@ -22,6 +22,8 @@ const OtpVerificationPage = () => {
   const [countdown, setCountdown] = useState(60);
   const [otpSent, setOtpSent] = useState(false);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(false);
+
 
   // Initialize OTP request
   useEffect(() => {
@@ -77,6 +79,12 @@ const handleResend = async () => {
   try {
     setPageLoading(true);
     setError(null);
+    
+    // Wait if countdown is still active
+    if (countdown > 0) {
+      throw new Error(`Please wait ${countdown} seconds before requesting a new OTP`);
+    }
+
     const response = await requestOTP(verificationType);
     
     if (response?.error) {
@@ -84,7 +92,7 @@ const handleResend = async () => {
     }
 
     setOtpSent(true);
-    setCountdown(60);
+    setCountdown(60); // Reset countdown
     toast.success('New OTP sent!');
   } catch (err) {
     const errorMessage = err.response?.data?.error || 
@@ -97,40 +105,24 @@ const handleResend = async () => {
   }
 };
 
+
+
 const handleVerify = async (otp) => {
   try {
-    setPageLoading(true);
-    setError(null);
+    const result = await verifyOTP(otp, verificationType);
     
-    // Clean the OTP input
-    const cleanOtp = otp.replace(/\D/g, '');
-    
-    if (cleanOtp.length !== 6) {
-      throw new Error('Please enter exactly 6 digits');
+    if (result.success) {
+      toast.success('Verification successful!');
+      navigate(location.state?.redirectTo || '/dashboard');
+    } else {
+      toast.error(result.error || 'Verification failed');
     }
-
-    const response = await verifyOTP(cleanOtp, verificationType);
-    
-    if (!response?.success) {
-      throw new Error(response?.error || 'Verification failed');
-    }
-
-    // Update auth state with new token if provided
-    if (response.token) {
-      persistAuth({
-        token: response.token,
-        user: { ...user, is_verified: true }
-      });
-    }
-
-    navigate(location.state?.redirectTo || '/dashboard', { replace: true });
-    
-  } catch (err) {
-    setError(err.message || 'Invalid OTP. Please try again.');
-  } finally {
-    setPageLoading(false);
+  } catch (error) {
+    toast.error(error.message || 'An error occurred during verification');
+    console.error('Verification error:', error);
   }
 };
+
   if (pageLoading || authLoading) {
     return (
       <div className="flex justify-center items-center h-screen">
